@@ -38,8 +38,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 17 }
-      - uses: android-actions/setup-android@v3
-      - run: ./gradlew assembleDebug --no-daemon
+      # o runner do GitHub já vem com o Android SDK instalado
+      - run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
         working-directory: android
       - uses: actions/upload-artifact@v4
         with:
