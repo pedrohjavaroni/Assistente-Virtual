@@ -190,19 +190,48 @@ app.get("/api/google/upcoming", async (req, res) => {
   }
 });
 
+// Mostra o endereço para abrir no celular (com QR code), escolhendo o IP do Wi-Fi
+// e deixando de lado placas virtuais (WSL, Docker, VirtualBox, VPN...).
+const VIRTUAL = /vEthernet|WSL|Hyper-V|VirtualBox|VMware|docker|^br-|^veth|vbox|virbr|utun|tailscale|zerotier|loopback/i;
+function lanAddresses() {
+  const list = [];
+  for (const [name, addrs] of Object.entries(os.networkInterfaces())) {
+    for (const n of addrs ?? []) {
+      if (n.family !== "IPv4" || n.internal || n.address.startsWith("169.254.")) continue;
+      let score = 0;
+      if (n.address.startsWith("192.168.")) score += 3;
+      else if (n.address.startsWith("10.")) score += 2;
+      else if (/^172\.(1[6-9]|2\d|3[01])\./.test(n.address)) score -= 1; // geralmente WSL/Docker
+      if (/wi-?fi|wlan|wireless|^en0$|^wl/i.test(name)) score += 2;
+      if (VIRTUAL.test(name)) score -= 5;
+      list.push({ name, address: n.address, score });
+    }
+  }
+  return list.sort((a, b) => b.score - a.score);
+}
+async function printPhoneAccess(port) {
+  const [best, ...others] = lanAddresses();
+  if (!best) { console.log("   (nenhuma rede encontrada: conecte o PC ao Wi-Fi para usar no celular)"); return; }
+  const url = `http://${best.address}:${port}`;
+  console.log(`\n📱 No celular (mesmo Wi-Fi do PC), abra no navegador:\n\n   ${url}\n`);
+  try {
+    const { default: qr } = await import("qrcode-terminal");
+    qr.generate(url, { small: true }, (code) => console.log(code.replace(/^/gm, "   ")));
+    console.log("   ↑ ou aponte a câmera do celular para este QR code\n");
+  } catch {}
+  if (others.length) console.log(`   Se não abrir, tente: ${others.map((o) => `http://${o.address}:${port}`).join("  ou  ")}`);
+  if (process.platform === "win32") {
+    console.log("   Windows: se o celular não conectar, libere o Node.js no Firewall (veja docs/celular.md).");
+  }
+}
+
 /** Inicia o servidor. Retorna a porta usada. */
 export function startServer(port = PORT, host = process.env.HOST || "0.0.0.0") {
   return new Promise((resolve, reject) => {
-    const server = app.listen(port, host, () => {
+    const server = app.listen(port, host, async () => {
       const used = server.address().port;
       console.log(`🦝 Raccoon IA rodando em http://localhost:${used}`);
-      if (host === "0.0.0.0") {
-        for (const list of Object.values(os.networkInterfaces())) {
-          for (const n of list ?? []) {
-            if (n.family === "IPv4" && !n.internal) console.log(`   no celular (mesmo Wi-Fi): http://${n.address}:${used}`);
-          }
-        }
-      }
+      if (host === "0.0.0.0") await printPhoneAccess(used);
       if (!process.env.ANTHROPIC_API_KEY) {
         console.warn("⚠️  ANTHROPIC_API_KEY não definida — crie um arquivo .env (veja .env.example).");
       }
