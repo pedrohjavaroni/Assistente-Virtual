@@ -55,6 +55,12 @@ Também dá para gerar no GitHub: **Actions → Build apps → Run workflow**. E
 
 Para usar fora do Wi-Fi de casa, publique o servidor (Render, Railway, Fly.io, um VPS...) e use esse endereço.
 
+### iPhone (sem PC)
+
+Versão publicada no claude.ai: abra **https://claude.ai/artifact/XFeFLQCbCXHjudAwvKrBUu** no Safari, logado na sua conta Claude.
+A IA roda pela sua conta Claude: não precisa de servidor nem de chave da API. Para falar, use o 🎤 do teclado do iPhone.
+O código fica em `ios/` (rode `node ios/build.mjs` para gerar `ios/raccoon-ia.html` depois de mudar o guaxinim).
+
 ### Navegador
 
 ```bash

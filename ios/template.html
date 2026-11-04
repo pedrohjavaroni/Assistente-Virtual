@@ -1,0 +1,600 @@
+<title>Raccoon IA</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Manrope:wght@400;500;700&display=swap">
+<style>
+/* Layout: um app de tela única — palco do guaxinim em cima, status e cuidados no meio, conversa embaixo. */
+:root {
+  --bg: #0d0e17;
+  --panel: #151729;
+  --glass: rgba(255, 255, 255, .055);
+  --line: rgba(255, 255, 255, .1);
+  --ink: #e9ecf5;
+  --muted: #8d92ab;
+  --cyan: #3ef0d0;
+  --pink: #ff5d8f;
+  --amber: #ffb547;
+  --red: #ff6464;
+  --display: "Unbounded", "Avenir Next", system-ui, sans-serif;
+  --body: "Manrope", -apple-system, "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body {
+  background:
+    radial-gradient(700px 420px at 90% -10%, rgba(62, 240, 208, .12), transparent 60%),
+    radial-gradient(600px 420px at -10% 110%, rgba(255, 93, 143, .12), transparent 60%),
+    var(--bg);
+  color: var(--ink);
+  font: 15px/1.45 var(--body);
+  -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
+}
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.ico { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.app {
+  height: 100%; max-width: 580px; margin: 0 auto; box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 10px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px;
+}
+.top { display: flex; align-items: center; gap: 8px; }
+.brand { flex: 1; display: flex; align-items: center; gap: 10px; font: 800 .9rem var(--display); letter-spacing: .12em; }
+.brand em { font-style: normal; color: var(--cyan); }
+.logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: linear-gradient(135deg, var(--cyan), var(--pink)); color: #0d0e17; letter-spacing: 0; }
+.chip { font: 700 .68rem var(--body); letter-spacing: .1em; text-transform: uppercase; padding: 6px 10px; border-radius: 99px; border: 1px solid var(--line); color: var(--cyan); white-space: nowrap; }
+.icon-btn { position: relative; border: 1px solid var(--line); background: var(--glass); border-radius: 12px; min-width: 40px; height: 40px; display: grid; place-items: center; font-weight: 700; font-size: .8rem; }
+.badge { position: absolute; top: -5px; right: -5px; background: var(--pink); color: #fff; font-size: .62rem; border-radius: 99px; padding: 1px 6px; font-weight: 800; }
+
+.stage {
+  position: relative; flex: none; height: clamp(170px, 31vh, 320px);
+  border-radius: 22px; overflow: hidden; border: 1px solid var(--line);
+  background:
+    linear-gradient(transparent 70%, rgba(62, 240, 208, .08)),
+    repeating-linear-gradient(90deg, transparent 0 39px, rgba(255,255,255,.035) 39px 40px),
+    repeating-linear-gradient(0deg, transparent 0 39px, rgba(255,255,255,.035) 39px 40px),
+    linear-gradient(180deg, #161933, #0f1020);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.stage::after { content: ""; position: absolute; left: 10%; right: 10%; bottom: 12px; height: 2px; background: linear-gradient(90deg, transparent, var(--cyan), transparent); opacity: .5; }
+.stage.night { background: linear-gradient(180deg, #07070f, #0d0e1c); }
+.stage > .pet { height: 74%; aspect-ratio: 240 / 260; max-width: 100%; position: relative; cursor: pointer; user-select: none; margin-bottom: 4px; z-index: 1; }
+.stage > .pet .rc { width: 100%; height: 100%; }
+.bubble {
+  position: absolute; top: 10px; left: 12px; right: 12px; z-index: 3;
+  background: rgba(13, 14, 23, .86); border: 1px solid var(--line); border-left: 3px solid var(--cyan);
+  padding: 9px 13px; border-radius: 14px; font-size: .92rem; max-height: 27%; overflow: auto;
+}
+.fx { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.fx span { position: absolute; left: 50%; top: 32%; font-size: 1.7rem; animation: floatUp 1.2s ease-out forwards; }
+@keyframes floatUp { from { opacity: 1; transform: translate(-50%, 0) scale(1); } to { opacity: 0; transform: translate(-50%, -80px) scale(1.4); } }
+
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
+.stat span { font-size: .64rem; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; font-weight: 700; display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+.bar { height: 6px; background: rgba(255,255,255,.08); border-radius: 99px; overflow: hidden; margin-top: 4px; }
+.bar i { display: block; height: 100%; width: 50%; border-radius: 99px; transition: width .6s, background .6s; }
+
+.care { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.care button { border: 1px solid var(--line); background: var(--glass); border-radius: 14px; padding: 9px 4px 7px; display: flex; flex-direction: column; align-items: center; gap: 3px; transition: transform .1s; }
+.care button .ico { color: var(--cyan); }
+.care button span { font-size: .7rem; color: var(--muted); font-weight: 700; }
+.care button:active { transform: scale(.95); }
+.care button:disabled { opacity: .35; }
+
+.chat { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 2px; }
+.msg { max-width: 85%; padding: 9px 13px; border-radius: 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.msg.me { align-self: flex-end; background: linear-gradient(135deg, var(--cyan), #2bb3ff); color: #04121a; border-bottom-right-radius: 4px; font-weight: 600; }
+.msg.bot { align-self: flex-start; background: var(--glass); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+.msg.sys { align-self: center; font-size: .75rem; color: var(--muted); text-align: center; }
+
+.composer { display: flex; gap: 8px; }
+.composer input { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; background: var(--glass); font-size: 16px; }
+.composer input::placeholder { color: var(--muted); }
+.send, .stop { border: 0; border-radius: 14px; width: 48px; height: 48px; flex: none; display: grid; place-items: center; background: var(--cyan); color: #04121a; }
+.stop { background: var(--pink); color: #fff; }
+.foot { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: .72rem; color: var(--muted); }
+.foot label { display: flex; align-items: center; gap: 6px; }
+.foot input { accent-color: var(--cyan); }
+
+.drawer { position: fixed; inset: 0 0 0 auto; width: min(380px, 100%); z-index: 20; box-sizing: border-box;
+  background: rgba(16, 17, 30, .98); border-left: 1px solid var(--line); overflow-y: auto;
+  padding: calc(16px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) 16px; }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; }
+.drawer h2 { margin: 0; font: 800 1rem var(--display); letter-spacing: .08em; }
+.drawer h3 { margin: 22px 0 8px; font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .14em; }
+.task-form { display: flex; gap: 8px; margin: 14px 0; }
+.task-form input { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--glass); font-size: 16px; }
+.task-form button { border: 0; border-radius: 12px; width: 44px; background: var(--cyan); color: #04121a; display: grid; place-items: center; }
+.list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.list li { display: flex; align-items: center; gap: 10px; background: var(--glass); border: 1px solid var(--line); padding: 9px 11px; border-radius: 12px; }
+.list li.done .t { text-decoration: line-through; color: var(--muted); }
+.list input { accent-color: var(--cyan); width: 18px; height: 18px; }
+.list .t { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.list small { color: var(--muted); font-variant-numeric: tabular-nums; }
+.list button { border: 0; background: none; color: var(--muted); padding: 4px; }
+.list button .ico { width: 18px; height: 18px; }
+.note { color: var(--muted); font-size: .78rem; margin-top: 20px; }
+
+/* ---- guaxinim ---- */
+__RCCSS__
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand"><span class="logo">R</span><span>RACCOON <em>IA</em></span></div>
+    <span class="chip" id="level">Nv. 1</span>
+    <button class="icon-btn" id="langBtn" title="Idioma / Language">PT</button>
+    <button class="icon-btn" id="tasksBtn" title="Tarefas"><svg class="ico" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg><span class="badge" id="taskBadge" hidden>0</span></button>
+  </header>
+
+  <section class="stage" id="stage">
+    <div class="bubble" id="bubble" hidden></div>
+    <div class="pet mood-happy" id="pet" title="Toque para fazer carinho">__SVG__</div>
+    <div class="fx" id="fx"></div>
+  </section>
+
+  <section class="stats">
+    <div class="stat"><span><b data-i18n="hunger">Fome</b><b id="v-hunger"></b></span><div class="bar"><i id="bar-hunger"></i></div></div>
+    <div class="stat"><span><b data-i18n="energy">Energia</b><b id="v-energy"></b></span><div class="bar"><i id="bar-energy"></i></div></div>
+    <div class="stat"><span><b data-i18n="fun">Vibe</b><b id="v-fun"></b></span><div class="bar"><i id="bar-fun"></i></div></div>
+    <div class="stat"><span><b data-i18n="hygiene">Estilo</b><b id="v-hygiene"></b></span><div class="bar"><i id="bar-hygiene"></i></div></div>
+  </section>
+
+  <nav class="care">
+    <button data-care="feed" id="c-feed"><svg class="ico" viewBox="0 0 24 24"><path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 2-2 6 0 8v10"/></svg><span data-i18n="feed">Comer</span></button>
+    <button data-care="play" id="c-play"><svg class="ico" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="11" rx="5"/><path d="M7 11v3M5.5 12.5h3M15 12h.01M18 13.5h.01"/></svg><span data-i18n="play">Jogar</span></button>
+    <button data-care="sleep" id="c-sleep"><svg class="ico" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg><span id="sleepLabel" data-i18n="sleep">Dormir</span></button>
+    <button data-care="clean" id="c-clean"><svg class="ico" viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg><span data-i18n="clean">Banho</span></button>
+  </nav>
+
+  <section class="chat" id="chat" aria-live="polite"></section>
+
+  <form class="composer" id="composer">
+    <input id="input" autocomplete="off" enterkeyhint="send" placeholder="Pergunte algo ao Raccoon..." />
+    <button type="submit" class="send" id="sendBtn" title="Enviar"><svg class="ico" viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-2.5-6.5z"/></svg></button>
+    <button type="button" class="stop" id="stopBtn" title="Parar" hidden><svg class="ico" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
+  </form>
+  <div class="foot">
+    <label><input type="checkbox" id="speakToggle" checked /> <span data-i18n="speak">Ler respostas em voz alta</span></label>
+    <span data-i18n="dictate">Para falar: use o 🎤 do teclado</span>
+  </div>
+</div>
+
+<aside class="drawer" id="drawer" hidden>
+  <div class="drawer-head">
+    <h2 data-i18n="tasks">Tarefas</h2>
+    <button class="icon-btn" id="closeDrawer" title="Fechar"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <form id="taskForm" class="task-form">
+    <input id="taskInput" placeholder="Nova tarefa..." autocomplete="off" />
+    <button title="Adicionar"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+  </form>
+  <ul id="taskList" class="list"></ul>
+  <h3 data-i18n="reminders">Lembretes</h3>
+  <ul id="reminderList" class="list"></ul>
+  <p class="note" id="syncNote"></p>
+  <p class="note" data-i18n="hint">Dica: "me lembra de beber água às 15h" ou "anota estudar física". Lembretes tocam com esta página aberta.</p>
+</aside>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const clamp = (n) => Math.max(0, Math.min(100, n));
+  const uid = () => Math.random().toString(36).slice(2, 9);
+  const local = {
+    get(k, f) { try { const v = localStorage.getItem("raccoon:" + k); return v ? JSON.parse(v) : f; } catch { return f; } },
+    set(k, v) { try { localStorage.setItem("raccoon:" + k, JSON.stringify(v)); } catch {} },
+  };
+
+  const I18N = {
+    pt: {
+      hunger: "Fome", energy: "Energia", fun: "Vibe", hygiene: "Estilo", feed: "Comer", play: "Jogar", sleep: "Dormir", wake: "Acordar", clean: "Banho",
+      speak: "Ler respostas em voz alta", dictate: "Para falar: use o 🎤 do teclado", tasks: "Tarefas", reminders: "Lembretes",
+      hint: "Dica: \"me lembra de beber água às 15h\" ou \"anota estudar física\". Lembretes tocam com esta página aberta.",
+      placeholder: "Pergunte algo ao Raccoon...", newTask: "Nova tarefa...", lvl: "Nv.",
+      yum: "Valeu, tava precisando disso.", full: "Tô de boa, já comi demais.", gg: "GG! Mais uma partida?", tired: "Tô sem bateria pra isso agora.",
+      fresh: "Agora sim, no estilo.", night: "Vou dar uma pausa. Me chama se precisar.", back: "Voltei. Bora?", rest: "Modo descanso. Deixa recarregar.",
+      levelUp: "Level up: nível {n}.", noTasks: "Nenhuma tarefa ainda", noRem: "Nenhum lembrete", reminder: "Lembrete", done: "Feito. Mandou bem.",
+      morning: "Bom dia!", afternoon: "Boa tarde!", evening: "Boa noite!", help: "O que vamos resolver hoje?", care: "Tô meio largado aqui... dá uma moral?",
+      lang: "Beleza, falando português.", noAi: "A IA só funciona com a página aberta no claude.ai, logado na sua conta.",
+      denied: "Você não liberou o uso do Claude nesta página. Recarregue para permitir.", busy: "Muitas perguntas seguidas. Espera um pouquinho.",
+      err: "Deu ruim aqui. Tenta de novo?", refused: "Com isso eu não posso ajudar. Vamos tentar outra coisa?",
+      synced: "Seus dados ficam salvos na sua conta Claude.", localOnly: "Seus dados ficam salvos só neste aparelho.",
+      days: ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"],
+    },
+    en: {
+      hunger: "Food", energy: "Energy", fun: "Vibe", hygiene: "Style", feed: "Eat", play: "Game", sleep: "Sleep", wake: "Wake up", clean: "Shower",
+      speak: "Read replies aloud", dictate: "To talk: use the keyboard 🎤", tasks: "Tasks", reminders: "Reminders",
+      hint: "Tip: \"remind me to drink water at 3pm\" or \"add study physics\". Reminders fire while this page is open.",
+      placeholder: "Ask Raccoon anything...", newTask: "New task...", lvl: "Lv.",
+      yum: "Thanks, I needed that.", full: "I'm good, already ate way too much.", gg: "GG! Run it back?", tired: "Battery's too low for that right now.",
+      fresh: "Fresh. Looking sharp.", night: "Taking a break. Ping me if you need me.", back: "I'm back. Let's go?", rest: "Rest mode. Let the battery recharge.",
+      levelUp: "Level up: level {n}.", noTasks: "No tasks yet", noRem: "No reminders", reminder: "Reminder", done: "Done. Nice work.",
+      morning: "Good morning!", afternoon: "Good afternoon!", evening: "Good evening!", help: "What are we tackling today?", care: "I'm kinda neglected over here... help a raccoon out?",
+      lang: "Cool, switching to English.", noAi: "The AI only works with this page open on claude.ai, signed in to your account.",
+      denied: "You didn't allow Claude on this page. Reload to allow it.", busy: "Too many questions in a row. Give me a sec.",
+      err: "Something broke. Try again?", refused: "Can't help with that one. Want to try something else?",
+      synced: "Your data is saved to your Claude account.", localOnly: "Your data is saved on this device only.",
+      days: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+    },
+  };
+
+  // ---------- estado ----------
+  const DEFAULT = { lang: "pt", pet: { hunger: 80, energy: 80, fun: 80, hygiene: 80, xp: 0, sleeping: false, last: Date.now() }, tasks: [], reminders: [] };
+  let S = structuredClone(DEFAULT);
+  Object.assign(S, local.get("state", {}));
+  let turns = local.get("turns", []);
+  const t = (k) => I18N[S.lang][k] ?? k;
+  const DECAY = { hunger: 7, energy: 5, fun: 8, hygiene: 4 };
+  let tempMood = null, tempTimer = null, busy = false, ctl = null;
+
+  // salva na conta Claude (db) quando disponível; senão, só no aparelho
+  let docRef = null, saveTimer = null, saving = false, dirty = false;
+  function save() {
+    local.set("state", S);
+    if (!docRef) return;
+    dirty = true;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(flush, 1500);
+  }
+  async function flush() {
+    if (!docRef || saving || !dirty) return;
+    saving = true; dirty = false;
+    try { await docRef.set({ state: JSON.stringify(S), updatedAt: Date.now() }); } catch {}
+    saving = false;
+    if (dirty) flush();
+  }
+
+  // ---------- tamagotchi ----------
+  function tick() {
+    const p = S.pet, now = Date.now();
+    const hours = Math.min((now - (p.last || now)) / 3_600_000, 48);
+    p.last = now;
+    for (const [k, r] of Object.entries(DECAY)) {
+      if (p.sleeping && k === "energy") p.energy = clamp(p.energy + 25 * hours);
+      else p[k] = clamp(p[k] - r * hours * (p.sleeping ? .4 : 1));
+    }
+    if (p.sleeping && p.energy >= 100) { p.sleeping = false; say(t("back")); }
+    render();
+  }
+  const level = () => Math.floor(S.pet.xp / 100) + 1;
+  function addXp(n) {
+    const before = level(); S.pet.xp += n;
+    if (level() > before) { burst("⭐"); say(t("levelUp").replace("{n}", level())); }
+  }
+  function mood() {
+    if (tempMood) return tempMood;
+    const p = S.pet;
+    if (p.sleeping) return "sleepy";
+    if (Math.min(p.hunger, p.fun, p.hygiene) < 25) return "sad";
+    if (p.energy < 20) return "sleepy";
+    return "happy";
+  }
+  function setTemp(m, ms = 4000) {
+    tempMood = m; clearTimeout(tempTimer);
+    tempTimer = setTimeout(() => { tempMood = null; render(); }, ms);
+    render();
+  }
+
+  function render() {
+    const el = $("pet"), p = S.pet;
+    el.className = el.className.replace(/mood-\w+/g, "").trim() + " mood-" + mood();
+    el.classList.toggle("dirty", p.hygiene < 35);
+    $("stage").classList.toggle("night", p.sleeping);
+    for (const k of Object.keys(DECAY)) {
+      const v = Math.round(p[k]);
+      $("bar-" + k).style.width = v + "%";
+      $("bar-" + k).style.background = v > 60 ? "var(--cyan)" : v > 30 ? "var(--amber)" : "var(--red)";
+      $("v-" + k).textContent = v;
+    }
+    $("level").textContent = `${t("lvl")} ${level()}`;
+    document.querySelectorAll(".care button").forEach((b) => { b.disabled = p.sleeping && b.dataset.care !== "sleep"; });
+    $("sleepLabel").textContent = p.sleeping ? t("wake") : t("sleep");
+    const open = S.tasks.filter((x) => !x.done).length;
+    $("taskBadge").hidden = !open; $("taskBadge").textContent = open;
+  }
+
+  function applyLang() {
+    document.documentElement.lang = S.lang === "pt" ? "pt-BR" : "en";
+    $("langBtn").textContent = S.lang.toUpperCase();
+    document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
+    $("input").placeholder = t("placeholder");
+    $("taskInput").placeholder = t("newTask");
+    render();
+  }
+
+  function addMsg(who, text) {
+    const d = document.createElement("div");
+    d.className = "msg " + who; d.textContent = text;
+    $("chat").append(d); $("chat").scrollTop = $("chat").scrollHeight;
+    return d;
+  }
+  let bubbleTimer;
+  function bubble(text, keep) {
+    const b = $("bubble"); b.hidden = !text; b.textContent = text || "";
+    clearTimeout(bubbleTimer);
+    if (text && !keep) bubbleTimer = setTimeout(() => { b.hidden = true; }, 9000);
+  }
+  function say(text, speakIt = true) { addMsg("bot", text); bubble(text); if (speakIt) speak(text); }
+  function burst(e) {
+    const s = document.createElement("span"); s.textContent = e; s.style.left = 35 + Math.random() * 30 + "%";
+    $("fx").append(s); setTimeout(() => s.remove(), 1300);
+  }
+
+  // ---------- voz (fala) ----------
+  let voices = [];
+  if ("speechSynthesis" in window) {
+    const load = () => { voices = speechSynthesis.getVoices(); };
+    load(); speechSynthesis.addEventListener?.("voiceschanged", load);
+  }
+  function detectLang(text) {
+    const pt = (text.match(/\b(você|voce|não|nao|é|está|que|como|para|pra|uma|meu|minha|por|favor|oi|qual|quando|onde|hoje|amanhã|de|do|da|com|eu|tem)\b/gi) || []).length + (/[ãõçáéíóúâê]/i.test(text) ? 2 : 0);
+    const en = (text.match(/\b(you|the|what|how|is|are|please|thanks|hello|hi|my|when|where|today|tomorrow|with|i|have|can|do|to|of|and)\b/gi) || []).length;
+    return pt === en ? S.lang : pt > en ? "pt" : "en";
+  }
+  function speak(text, lang = S.lang) {
+    if (!$("speakToggle").checked || !("speechSynthesis" in window)) return;
+    const clean = String(text).replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, "").replace(/[*_#`>]/g, "").trim();
+    if (!clean) return;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(clean);
+      const loc = lang === "pt" ? "pt-BR" : "en-US";
+      u.lang = loc;
+      const v = voices.find((x) => x.lang === loc && /premium|enhanced|natural|siri/i.test(x.name)) || voices.find((x) => x.lang === loc);
+      if (v) u.voice = v;
+      u.pitch = .95; u.rate = 1.05;
+      u.onstart = () => $("pet").classList.add("talking");
+      u.onend = u.onerror = () => $("pet").classList.remove("talking");
+      speechSynthesis.speak(u);
+    } catch {}
+  }
+
+  // ---------- cuidados ----------
+  const last = {};
+  function care(a) {
+    if (Date.now() - (last[a] || 0) < 1500) return;
+    last[a] = Date.now();
+    const p = S.pet;
+    if (a === "feed") {
+      if (p.hunger > 95) { say(t("full")); setTemp("thinking"); return; }
+      p.hunger = clamp(p.hunger + 25); p.hygiene = clamp(p.hygiene - 3);
+      burst(["🍕", "🍣", "🌮", "🍔", "🍩"][Math.floor(Math.random() * 5)]); setTemp("excited"); say(t("yum"));
+    } else if (a === "play") {
+      if (p.energy < 15) { say(t("tired")); setTemp("sleepy"); return; }
+      p.fun = clamp(p.fun + 25); p.energy = clamp(p.energy - 10); p.hunger = clamp(p.hunger - 5);
+      burst("🎮"); setTemp("cool", 5000); say(t("gg"));
+    } else if (a === "clean") {
+      p.hygiene = 100; burst("🫧"); burst("✨"); setTemp("cool"); say(t("fresh"));
+    } else if (a === "sleep") {
+      p.sleeping = !p.sleeping; say(p.sleeping ? t("night") : t("back"));
+    }
+    addXp(5); save(); render();
+  }
+  document.querySelectorAll(".care button").forEach((b) => b.addEventListener("click", () => care(b.dataset.care)));
+  $("pet").addEventListener("click", () => {
+    if (S.pet.sleeping) { say(t("rest"), false); return; }
+    S.pet.fun = clamp(S.pet.fun + 3); burst("✨"); setTemp("love", 2500); save(); render();
+  });
+
+  const LOCAL_CMDS = [
+    ["feed", /\b(com(e|er|ida)|fome|lanche|feed|eat|food|snack)\b/i],
+    ["play", /\b(jog(ar|o)|brinc\w*|play|game)\b/i],
+    ["clean", /\b(banho|limp\w*|clean|bath|shower)\b/i],
+    ["sleep", /\b(dorm\w*|sono|sleep|nap|acord\w*|wake)\b/i],
+  ];
+  function localCmd(text) {
+    if (text.split(/\s+/).length > 4 || text.includes("?")) return false;
+    const hit = LOCAL_CMDS.find(([, re]) => re.test(text));
+    if (!hit) return false;
+    if (hit[0] === "sleep" && /acord|wake/i.test(text) && !S.pet.sleeping) return false;
+    addMsg("me", text); care(hit[0]); return true;
+  }
+
+  // ---------- IA (Claude, pela sua conta) ----------
+  let samplePromise = window.claude?.use ? window.claude.use("sample") : Promise.resolve(null);
+
+  function nowLocal() {
+    const d = new Date(), p = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())} (${I18N[S.lang].days[d.getDay()]})`;
+  }
+  function rules() {
+    const p = S.pet;
+    const tasks = S.tasks.slice(0, 40).map((x) => `- [${x.done ? "x" : " "}] id=${x.id} ${x.title}`).join("\n") || "(nenhuma)";
+    return `Você é o Raccoon, um guaxinim virtual estilo tamagotchi que também é assistente pessoal, no app "Raccoon IA" (aberto no iPhone do usuário).
+Personalidade: descolado e tranquilo (moletom, fone no pescoço, tênis). Fala como um amigo esperto da idade do usuário (adolescente/jovem adulto): direto, bem-humorado, ironia leve, gírias com moderação. Nada de tom infantil ou excesso de exclamações. Competente de verdade: responde perguntas, explica, ajuda nos estudos e no trabalho, organiza o dia.
+Respostas curtas e naturais (1 a 3 frases, podem ser lidas em voz alta), sem markdown, listas longas ou tabelas, no máximo um emoji. Estenda só se pedirem detalhes. Responda no idioma em que o usuário escreveu (português ou inglês).
+Use as ferramentas: add_task para anotar algo, complete_task para concluir (use o id exato), set_reminder para lembretes com hora (calcule a partir da data/hora atual), set_mood de vez em quando para mudar sua expressão. Não diga que vai lembrar sem usar set_reminder.
+
+Estado atual
+Data/hora local: ${nowLocal()}
+Nível ${level()} — status (100 = ótimo): fome ${Math.round(p.hunger)}, energia ${Math.round(p.energy)}, vibe ${Math.round(p.fun)}, estilo ${Math.round(p.hygiene)}${p.sleeping ? " (estava dormindo)" : ""}
+Tarefas:
+${tasks}
+
+Se estiver com fome, cansado ou sujo, pode comentar de leve com humor, mas sempre ajude.`;
+  }
+
+  const TOOLS = [
+    { name: "add_task", description: "Adiciona uma tarefa à lista do usuário. Retorna o id criado.",
+      inputSchema: { type: "object", properties: { title: { type: "string", description: "Texto curto da tarefa" } }, required: ["title"] },
+      execute(input) {
+        const title = String(input.title || "").trim().slice(0, 200);
+        if (!title) throw new Error("title vazio");
+        const task = { id: uid(), title, done: false };
+        S.tasks.push(task); burst("📝"); save(); renderLists(); render();
+        return { ok: true, id: task.id };
+      } },
+    { name: "complete_task", description: "Marca uma tarefa como concluída pelo id da lista de tarefas atual.",
+      inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+      execute(input) {
+        const task = S.tasks.find((x) => x.id === String(input.id));
+        if (!task) throw new Error("tarefa não encontrada");
+        if (!task.done) { task.done = true; addXp(10); burst("✅"); }
+        save(); renderLists(); render();
+        return { ok: true };
+      } },
+    { name: "set_reminder", description: "Agenda um lembrete. 'at' é data/hora local ISO 8601 sem fuso, ex: 2026-11-04T18:30. O lembrete toca com a página aberta.",
+      inputSchema: { type: "object", properties: { text: { type: "string" }, at: { type: "string" } }, required: ["text", "at"] },
+      execute(input) {
+        const text = String(input.text || "").trim().slice(0, 200);
+        const at = new Date(String(input.at)).getTime();
+        if (!text || Number.isNaN(at)) throw new Error("text ou at inválido");
+        S.reminders.push({ id: uid(), text, at, fired: false }); burst("⏰"); save(); renderLists();
+        return { ok: true, when: new Date(at).toString() };
+      } },
+    { name: "set_mood", description: "Muda a expressão do guaxinim na tela: happy, excited, thinking, sad, sleepy, cool (óculos escuros) ou love.",
+      inputSchema: { type: "object", properties: { mood: { type: "string", enum: ["happy", "excited", "thinking", "sad", "sleepy", "cool", "love"] } }, required: ["mood"] },
+      execute(input) {
+        const m = String(input.mood);
+        if (!["happy", "excited", "thinking", "sad", "sleepy", "cool", "love"].includes(m)) throw new Error("mood inválido");
+        setTemp(m, 6000); return { ok: true };
+      } },
+  ];
+
+  const ERR = { not_granted: "denied", session_expired: "noAi", sampling_disabled: "noAi", capability_disabled: "noAi", capability_removed: "noAi",
+    rate_limited: "busy", queue_overflow: "busy", refused: "refused" };
+
+  async function ask(text) {
+    text = text.trim();
+    if (!text || busy) return;
+    if (localCmd(text)) return;
+    if (S.pet.sleeping) { S.pet.sleeping = false; save(); render(); }
+    const sample = await samplePromise;
+    addMsg("me", text);
+    if (!sample) { say(t("noAi"), false); return; }
+
+    busy = true;
+    $("sendBtn").hidden = true; $("stopBtn").hidden = false;
+    setTemp("thinking", 120000);
+    bubble("…", true);
+    const out = addMsg("bot", "…");
+    const replyLang = detectLang(text);
+    if (turns.length > 30) turns = turns.slice(-20);
+    while (turns.length && turns[0].role !== "user") turns.shift();
+    turns.push({ role: "user", content: text });
+    ctl = new AbortController();
+    let reply = "";
+    try {
+      const res = await sample([{ role: "user", content: rules() }, ...turns], {
+        modelTier: "quick", cache: false, signal: ctl.signal, tools: TOOLS,
+        onText: ({ text: whole }) => {
+          if (!reply) { if (tempMood === "thinking") tempMood = null; $("pet").classList.add("talking"); render(); }
+          reply = whole; out.textContent = whole; bubble(whole, true);
+          $("chat").scrollTop = $("chat").scrollHeight;
+        },
+      });
+      reply = res.text;
+      out.textContent = reply;
+      turns.push({ role: "assistant", content: reply });
+    } catch (e) {
+      turns.pop();
+      if (e?.code === "cancelled") reply = e.text || "…";
+      else reply = e?.text || t(ERR[e?.code] || "err");
+      out.textContent = reply;
+    } finally {
+      busy = false; ctl = null;
+      $("sendBtn").hidden = false; $("stopBtn").hidden = true;
+      $("pet").classList.remove("talking");
+      if (tempMood === "thinking") tempMood = null;
+      bubble(reply); addXp(2); save(); render();
+      local.set("turns", turns);
+      speak(reply, replyLang);
+    }
+  }
+  $("composer").addEventListener("submit", (e) => { e.preventDefault(); const v = $("input").value; $("input").value = ""; ask(v); });
+  $("stopBtn").addEventListener("click", () => ctl?.abort());
+
+  $("langBtn").addEventListener("click", () => { S.lang = S.lang === "pt" ? "en" : "pt"; save(); applyLang(); say(t("lang")); });
+  $("speakToggle").checked = local.get("speak", true);
+  $("speakToggle").addEventListener("change", (e) => { local.set("speak", e.target.checked); if (!e.target.checked) try { speechSynthesis.cancel(); } catch {} });
+
+  // ---------- tarefas e lembretes ----------
+  const TRASH = '<svg class="ico" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+  function renderLists() {
+    const tl = $("taskList"); tl.replaceChildren();
+    if (!S.tasks.length) { const li = document.createElement("li"); li.innerHTML = `<small></small>`; li.firstChild.textContent = t("noTasks"); tl.append(li); }
+    for (const task of S.tasks) {
+      const li = document.createElement("li"); li.className = task.done ? "done" : "";
+      const cb = Object.assign(document.createElement("input"), { type: "checkbox", checked: task.done, id: "task-" + task.id });
+      cb.addEventListener("change", () => {
+        task.done = cb.checked;
+        if (task.done) { addXp(10); setTemp("excited"); bubble(t("done")); }
+        save(); renderLists(); render();
+      });
+      const span = Object.assign(document.createElement("label"), { className: "t", textContent: task.title, htmlFor: cb.id });
+      const del = Object.assign(document.createElement("button"), { innerHTML: TRASH, title: "Apagar" });
+      del.addEventListener("click", () => { S.tasks = S.tasks.filter((x) => x !== task); save(); renderLists(); render(); });
+      li.append(cb, span, del); tl.append(li);
+    }
+    const rl = $("reminderList"); rl.replaceChildren();
+    const up = S.reminders.filter((r) => !r.fired).sort((a, b) => a.at - b.at);
+    if (!up.length) { const li = document.createElement("li"); li.innerHTML = `<small></small>`; li.firstChild.textContent = t("noRem"); rl.append(li); }
+    for (const r of up) {
+      const li = document.createElement("li");
+      const span = Object.assign(document.createElement("span"), { className: "t", textContent: "⏰ " + r.text });
+      const when = Object.assign(document.createElement("small"), {
+        textContent: new Date(r.at).toLocaleString(S.lang === "pt" ? "pt-BR" : "en-US", { dateStyle: "short", timeStyle: "short" }) });
+      const del = Object.assign(document.createElement("button"), { innerHTML: TRASH, title: "Apagar" });
+      del.addEventListener("click", () => { S.reminders = S.reminders.filter((x) => x !== r); save(); renderLists(); });
+      li.append(span, when, del); rl.append(li);
+    }
+  }
+  $("taskForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const title = $("taskInput").value.trim(); if (!title) return;
+    S.tasks.push({ id: uid(), title, done: false }); $("taskInput").value = ""; save(); renderLists(); render();
+  });
+  $("tasksBtn").addEventListener("click", () => { renderLists(); $("drawer").hidden = false; });
+  $("closeDrawer").addEventListener("click", () => { $("drawer").hidden = true; });
+
+  function checkReminders() {
+    const now = Date.now(); let changed = false;
+    for (const r of S.reminders) {
+      if (r.fired || r.at > now) continue;
+      r.fired = true; changed = true;
+      say(`${t("reminder")}: ${r.text}`); setTemp("excited", 6000);
+    }
+    const before = S.reminders.length;
+    S.reminders = S.reminders.filter((r) => !r.fired || now - r.at < 86_400_000);
+    if (changed || before !== S.reminders.length) { save(); renderLists(); }
+  }
+
+  // ---------- conta Claude: guarda o estado entre aparelhos ----------
+  async function connectDb() {
+    if (!window.claude?.use) { $("syncNote").textContent = t("localOnly"); return; }
+    const [db, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]);
+    if (!db || !user) { $("syncNote").textContent = t("localOnly"); return; }
+    try {
+      const id = await user.id();
+      const ref = db.doc(`data/users/${id}/raccoon`);
+      const snap = await Promise.race([ref.get(), new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 10000))]);
+      if (snap.exists) {
+        const remote = JSON.parse(String(snap.data().state || "{}"));
+        const localTs = local.get("savedAt", 0);
+        if ((snap.data().updatedAt || 0) >= localTs) { S = Object.assign(structuredClone(DEFAULT), remote); applyLang(); renderLists(); tick(); }
+      }
+      docRef = ref;
+      $("syncNote").textContent = t("synced");
+      dirty = true; flush();
+    } catch { $("syncNote").textContent = t("localOnly"); }
+  }
+  const origSave = save;
+  save = function () { local.set("savedAt", Date.now()); origSave(); };
+
+  // ---------- início ----------
+  applyLang(); renderLists(); tick();
+  setInterval(tick, 10000);
+  setInterval(checkReminders, 15000);
+  checkReminders();
+  connectDb();
+  for (const m of turns.slice(-6)) addMsg(m.role === "user" ? "me" : "bot", m.content);
+  const h = new Date().getHours();
+  setTimeout(() => say(`${h < 12 ? t("morning") : h < 18 ? t("afternoon") : t("evening")} ${mood() === "sad" ? t("care") : t("help")}`, false), 300);
+})();
+</script>
