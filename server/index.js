@@ -2,6 +2,7 @@
 // Serve o app (PWA) e faz a ponte com a API do Claude, transmitindo a resposta
 // por Server-Sent Events. A chave da API fica só aqui no servidor, nunca no navegador.
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
@@ -17,10 +18,20 @@ const PORT = Number(process.env.PORT) || 3000;
 const MODEL = process.env.RACCOON_MODEL || "claude-opus-5-5";
 const MAX_TOOL_ROUNDS = 5;
 
-const client = new Anthropic();
+// Cliente criado sob demanda: no app desktop a chave pode ser definida depois de iniciar
+let client = null, clientKey = null;
+function getClient() {
+  const key = process.env.ANTHROPIC_API_KEY || null;
+  if (!client || key !== clientKey) { client = new Anthropic(); clientKey = key; }
+  return client;
+}
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(here, "..", "public")));
+// Whisper (voz offline do app desktop) servido localmente
+const modules = path.join(here, "..", "node_modules");
+app.use("/vendor/transformers", express.static(path.join(modules, "@huggingface", "transformers", "dist")));
+app.use("/vendor/ort", express.static(path.join(modules, "onnxruntime-web", "dist")));
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, model: MODEL, hasKey: Boolean(process.env.ANTHROPIC_API_KEY) });
@@ -58,7 +69,7 @@ app.post("/api/chat", async (req, res) => {
 
   try {
     for (let round = 0; round < MAX_TOOL_ROUNDS && !aborted; round++) {
-      const stream = client.beta.messages.stream({
+      const stream = getClient().beta.messages.stream({
         model: MODEL,
         max_tokens: 4096,
         betas: ["server-side-fallback-2026-07-01"],
@@ -113,9 +124,26 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`🦝 Raccoon IA rodando em http://localhost:${PORT}`);
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.warn("⚠️  ANTHROPIC_API_KEY não definida — crie um arquivo .env (veja .env.example).");
-  }
-});
+/** Inicia o servidor. Retorna a porta usada. */
+export function startServer(port = PORT, host = process.env.HOST || "0.0.0.0") {
+  return new Promise((resolve, reject) => {
+    const server = app.listen(port, host, () => {
+      const used = server.address().port;
+      console.log(`🦝 Raccoon IA rodando em http://localhost:${used}`);
+      if (host === "0.0.0.0") {
+        for (const list of Object.values(os.networkInterfaces())) {
+          for (const n of list ?? []) {
+            if (n.family === "IPv4" && !n.internal) console.log(`   no celular (mesmo Wi-Fi): http://${n.address}:${used}`);
+          }
+        }
+      }
+      if (!process.env.ANTHROPIC_API_KEY) {
+        console.warn("⚠️  ANTHROPIC_API_KEY não definida — crie um arquivo .env (veja .env.example).");
+      }
+      resolve(used);
+    });
+    server.on("error", reject);
+  });
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) startServer();

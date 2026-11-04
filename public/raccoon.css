@@ -1,0 +1,56 @@
+/* Animações e expressões do guaxinim (compartilhado) */
+.rc { display: block; width: 100%; height: auto; overflow: visible; }
+.rc-tail { transform-origin: 166px 214px; animation: rc-wag 2.6s ease-in-out infinite; }
+.rc-head { transform-origin: 120px 145px; animation: rc-bob 3.4s ease-in-out infinite; }
+.rc-eyes { transform-origin: 120px 97px; animation: rc-blink 5.5s infinite; }
+.rc-arm-l { transform-origin: 72px 170px; } .rc-arm-r { transform-origin: 168px 170px; }
+@keyframes rc-wag { 0%,100% { transform: rotate(-5deg); } 50% { transform: rotate(7deg); } }
+@keyframes rc-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(2.5px); } }
+@keyframes rc-blink { 0%, 93%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.08); } }
+@keyframes rc-hop { 0%,100% { transform: translateY(0); } 40% { transform: translateY(-18px); } }
+@keyframes rc-talk { 0%,100% { transform: scaleY(.3); } 50% { transform: scaleY(1); } }
+@keyframes rc-nod { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-3deg); } 75% { transform: rotate(3deg); } }
+@keyframes rc-zz { 0%,100% { opacity: .2; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-6px); } }
+@keyframes rc-step-l { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+@keyframes rc-step-r { 0%,100% { transform: translateY(-7px); } 50% { transform: translateY(0); } }
+@keyframes rc-swing { 0%,100% { transform: rotate(8deg); } 50% { transform: rotate(-8deg); } }
+@keyframes rc-walkbob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes rc-wave { 0%,100% { transform: rotate(0); } 50% { transform: rotate(-35deg); } }
+
+/* tudo que é opcional começa escondido */
+.rc-eyes-closed, .rc-eyes-happy, .rc-shades, .rc-blush, .rc-m, .rc-zzz, .rc-dirt { display: none; }
+.rc-m-smirk { display: inline; }
+
+.mood-excited .rc-eyes, .mood-love .rc-eyes, .mood-sleepy .rc-eyes { display: none; }
+.mood-excited .rc-eyes-happy, .mood-love .rc-eyes-happy { display: inline; }
+.mood-excited .rc-m-smirk { display: none; } .mood-excited .rc-m-grin { display: inline; }
+.mood-excited .rc { animation: rc-hop .55s ease-in-out 2; }
+.mood-excited .rc-arm-r { animation: rc-wave .4s ease-in-out 3; }
+.mood-love .rc-blush { display: inline; }
+.mood-thinking .rc-m-smirk { display: none; } .mood-thinking .rc-m-flat { display: inline; }
+.mood-thinking .rc-iris { transform: translate(2px, -3px); }
+.mood-thinking .rc-head { animation: rc-nod 1.8s ease-in-out infinite; }
+.mood-sad .rc-m-smirk { display: none; } .mood-sad .rc-m-sad { display: inline; }
+.mood-sad .rc-lid { transform: translateY(4px); }
+.mood-sad .rc-iris { transform: translateY(2px); }
+.mood-sleepy .rc-eyes-closed, .mood-sleepy .rc-zzz { display: inline; }
+.mood-sleepy .rc-zzz { animation: rc-zz 2s ease-in-out infinite; }
+.mood-sleepy .rc-tail, .mood-sleepy .rc-head { animation-duration: 6s; }
+.mood-cool .rc-shades { display: inline; }
+.dirty .rc-dirt { display: inline; }
+
+.talking .rc-m { display: none !important; }
+.talking .rc-m-talk { display: inline !important; transform-origin: 120px 128px; animation: rc-talk .22s ease-in-out infinite; }
+.listening .rc-head { animation: none; transform: rotate(-6deg); }
+.listening .rc-phones-cups { filter: drop-shadow(0 0 6px #ff5d8f); }
+
+.walking .rc-leg-l { animation: rc-step-l .5s ease-in-out infinite; }
+.walking .rc-leg-r { animation: rc-step-r .5s ease-in-out infinite; }
+.walking .rc-arm-l { animation: rc-swing .5s ease-in-out infinite; }
+.walking .rc-arm-r { animation: rc-swing .5s ease-in-out infinite reverse; }
+.walking .rc-body, .walking .rc-head { animation: rc-walkbob .25s ease-in-out infinite; }
+.facing-left .rc { transform: scaleX(-1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .rc, .rc * { animation: none !important; }
+}

@@ -1,7 +1,7 @@
 // Service worker: deixa o app instalável e abrindo mesmo sem internet
 // (a conversa com a IA precisa de conexão).
-const CACHE = "raccoon-v1";
-const ASSETS = ["./", "index.html", "style.css", "app.js", "voice.js", "i18n.js", "manifest.webmanifest", "icons/icon.svg"];
+const CACHE = "raccoon-v2";
+const ASSETS = ["./", "index.html", "style.css", "app.js", "voice.js", "i18n.js", "raccoon.js", "raccoon.css", "companion.html", "companion.js", "manifest.webmanifest", "icons/icon.svg"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));

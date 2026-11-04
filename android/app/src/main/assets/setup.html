@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0d0e17; color: #e9ecf5;
+         font: 15px/1.5 system-ui, sans-serif; padding: 24px; box-sizing: border-box; }
+  .card { width: 100%; max-width: 420px; }
+  h1 { letter-spacing: .14em; font-size: 1.2rem; } h1 b { color: #3ef0d0; }
+  p { color: #8a8fa8; } .err { color: #ff5d8f; }
+  input { width: 100%; box-sizing: border-box; padding: 14px; border-radius: 14px; border: 1px solid #3ef0d0;
+          background: #141626; color: #fff; font-size: 1rem; margin: 10px 0; }
+  button { width: 100%; padding: 14px; border: 0; border-radius: 14px; background: #3ef0d0; color: #04121a; font-weight: 800; font-size: 1rem; }
+  code { color: #3ef0d0; }
+</style></head>
+<body><div class="card">
+  <h1>RACCOON <b>IA</b></h1>
+  <p id="err" class="err"></p>
+  <p>Endereço do servidor do Raccoon. Rode <code>npm start</code> no PC e use o IP dele na mesma rede Wi-Fi
+     (ex: <code>http://192.168.0.10:3000</code>), ou o endereço onde você publicou o servidor.</p>
+  <input id="url" inputmode="url" autocomplete="off" placeholder="http://192.168.0.10:3000">
+  <button id="go">Conectar</button>
+</div>
+<script>
+  const q = new URLSearchParams(location.search);
+  document.getElementById("url").value = q.get("url") || "";
+  if (q.get("error")) document.getElementById("err").textContent = "Não consegui conectar em " + q.get("url") + ". Confira o endereço e se o servidor está rodando.";
+  document.getElementById("go").onclick = () => {
+    let u = document.getElementById("url").value.trim();
+    if (!u) return;
+    if (!/^https?:\/\//.test(u)) u = "http://" + u;
+    RaccoonSetup.save(u.replace(/\/+$/, ""));
+  };
+</script></body></html>

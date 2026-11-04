@@ -1,69 +1,81 @@
-# 🦝 Raccoon IA
+# Raccoon IA
 
-Assistente virtual em formato de guaxinim, estilo **tamagotchi** + **inteligência artificial** (Claude).
-<img src="docs/screenshot-celular.png" alt="Raccoon IA no celular" width="280" align="right" />
+<img src="docs/screenshot-celular.png" alt="Raccoon IA no celular" width="260" align="right" />
 
-Funciona no **PC e no celular** (é um PWA: dá para instalar como app) e entende **comandos de voz em português e inglês**.
+Um guaxinim virtual com inteligência artificial (Claude) que **fica na sua tela**, no PC e no celular.
+É parte bichinho virtual (estilo tamagotchi), parte assistente pessoal, e entende **voz em português e inglês**.
 
-## O que ele faz
+- **Visual streetwear**: moletom, fone no pescoço, tênis, olhar de boa e óculos escuros quando manda bem.
+- **Fica na tela**: no PC ele anda pela parte de baixo da tela, por cima das outras janelas. No Android vira uma
+  bolha flutuante por cima dos outros apps.
+- **Assistente**: responde perguntas, ajuda nos estudos e no trabalho, cria tarefas e lembretes.
+- **Tamagotchi**: fome, energia, vibe e estilo caem com o tempo. Dá pra dar comida, jogar, dormir e tomar banho, e ele sobe de nível.
+- **Voz**: botão do microfone ou modo mãos-livres "Ei Raccoon", com as respostas faladas no idioma em que você falou.
 
-- **Bichinho virtual 2D animado** — pisca, balança a cauda, fala, dorme, fica feliz, triste, pensativo ou apaixonado.
-- **Cuidados estilo tamagotchi** — fome, energia, diversão e higiene caem com o tempo (inclusive com o app fechado).
-  Alimente, brinque, coloque para dormir e dê banho. Ganha XP e sobe de nível.
-- **IA de verdade** — responde perguntas, dá ideias e ajuda no dia a dia, com personalidade de guaxinim.
-- **Tarefas e lembretes** — "adicione comprar pão na lista", "me lembre de beber água às 15h".
-  O Raccoon usa ferramentas para criar a tarefa/lembrete e avisa com notificação + voz na hora certa.
-- **Voz em PT-BR e EN-US**
-  - 🎤 botão do microfone: fale uma frase e ela é enviada.
-  - Modo **"Ei Raccoon"** (mãos-livres): fica ouvindo e responde quando você chama pelo nome.
-  - Respostas lidas em voz alta, no idioma em que você falou.
-  - Comandos curtos ("alimentar", "brincar", "dormir", "banho", "feed", "play"...) funcionam na hora, sem gastar IA.
+<br clear="right"/>
 
-## Como rodar
+![Expressões do Raccoon](docs/expressoes.png)
 
-Precisa de **Node.js 20+** e uma chave da API do Claude (https://console.anthropic.com).
+## Onde ele roda
+
+| Plataforma | Como | Guaxinim fora do app | Voz |
+|---|---|---|---|
+| **Windows / macOS / Linux** | app desktop (`desktop/`, Electron) | anda pela tela, sempre por cima | Whisper local (offline, baixa ~80 MB na 1ª vez) |
+| **Android** | app nativo (`android/`) | bolha flutuante sobre outros apps | reconhecimento de voz do próprio Android |
+| **Navegador / iPhone** | PWA (abre no navegador e instala) | não: o iOS não deixa apps desenharem por cima de outros | Web Speech (Chrome, Edge, Safari) |
+
+## Começando
+
+Precisa de **Node.js 20+** e de uma chave da API do Claude (https://console.anthropic.com).
+
+### PC: app desktop (recomendado)
 
 ```bash
 npm install
-cp .env.example .env        # e coloque sua ANTHROPIC_API_KEY
-npm start
+npm run desktop
 ```
 
-Abra **http://localhost:3000** no Chrome, Edge ou Safari.
+Na primeira vez ele pede a chave da API (fica salva no seu computador). O guaxinim aparece no canto inferior da tela:
+- **arrastar** move o guaxinim; **clique** faz carinho; **duplo clique** abre o app
+- passe o mouse em cima para ver os botões: falar, perguntar, comer, abrir o app
+- **botão direito** abre o menu: andar pela tela, iniciar com o computador, sair
+- fechar a janela principal não fecha o app: ele continua na bandeja do sistema
 
-### No celular
+**Instalador:** `npm run build:win` (ou `build:mac` / `build:linux`) gera o instalador em `dist/`.
+Também dá para gerar no GitHub: **Actions → Build apps → Run workflow**. Ele gera `.exe` (Windows), `.dmg` (Mac) e `.apk` (Android).
 
-1. Rode o servidor no PC e acesse pelo IP da rede (ex: `http://192.168.0.10:3000`) — ou publique o servidor
-   (Render, Railway, Fly.io etc.). Microfone e instalação exigem **HTTPS** fora do `localhost`.
-2. No navegador do celular: menu → **"Adicionar à tela inicial" / "Instalar app"**.
+### Celular Android
+
+1. No PC, rode o servidor: `cp .env.example .env` (coloque a chave) e depois `npm start`.
+   O terminal mostra o endereço para o celular, tipo `http://192.168.0.10:3000`.
+2. Instale `downloads/RaccoonIA-android.apk` no celular (permita "instalar apps de fontes desconhecidas").
+3. Abra o app, digite o endereço do servidor e toque no ícone de tela no topo para soltar o guaxinim na tela
+   (o Android pede a permissão "sobrepor a outros apps").
+
+Para usar fora do Wi-Fi de casa, publique o servidor (Render, Railway, Fly.io, um VPS...) e use esse endereço.
+
+### Navegador
+
+```bash
+npm start   # http://localhost:3000
+```
 
 ## Estrutura
 
 ```
-server/
-  index.js    servidor Express + ponte com a API do Claude (streaming via SSE)
-  prompt.js   personalidade do Raccoon + estado do bichinho e das tarefas
-  tools.js    ferramentas da IA: add_task, complete_task, set_reminder, set_mood
-public/
-  index.html  tela e o guaxinim em SVG
-  style.css   visual e animações (claro/escuro)
-  app.js      lógica do tamagotchi, chat, tarefas e lembretes
-  voice.js    reconhecimento e síntese de voz (Web Speech API)
-  i18n.js     textos em português e inglês
-  sw.js, manifest.webmanifest   PWA (instalável / offline)
+server/       servidor: ponte com a API do Claude (streaming), personalidade e ferramentas
+public/       app web (também usado dentro do desktop e do Android)
+  raccoon.js / raccoon.css   o guaxinim em SVG + animações e expressões
+  app.js                     tamagotchi, chat, tarefas, lembretes
+  companion.html / .js       o guaxinim "solto" na tela (desktop e bolha do Android)
+  voice.js                   voz: Android nativo, Whisper (desktop) ou Web Speech (navegador)
+desktop/      app Electron: janela transparente, passeio pela tela, bandeja
+android/      app Android (Java): WebView + bolha flutuante + voz nativa
 ```
 
-- A chave da API fica só no servidor. Tarefas, lembretes e o estado do bichinho ficam salvos no aparelho (localStorage).
-- Modelo padrão: `claude-opus-5-5` com esforço baixo (respostas rápidas para conversa por voz).
-  Troque com `RACCOON_MODEL` no `.env`. Se o modelo recusar um pedido, a API tenta um modelo alternativo automaticamente.
+## Observações
 
-## Limitações conhecidas
-
-- Reconhecimento de voz depende do navegador: Chrome/Edge (PC e Android) e Safari (iOS 14.5+). O Firefox não suporta.
-- Lembretes disparam com o app aberto (ou em segundo plano recente). Para notificações com o app totalmente fechado
-  seria preciso push no servidor — um próximo passo.
-
-## Próximos passos sugeridos
-
-- Empacotar como app nativo: **Capacitor** (Android/iOS) e **Tauri/Electron** (Windows/Mac).
-- Notificações push pelo servidor, integração com Google Agenda, mini-games para o guaxinim, roupinhas/acessórios.
+- A chave da API fica só no servidor ou no app desktop, nunca vai para o navegador.
+- Modelo padrão: `claude-opus-5-5` com esforço baixo, para respostas rápidas por voz (`RACCOON_MODEL` no `.env` troca o modelo).
+- No PC a voz roda 100% local (Whisper). Num PC mais fraco, cada frase pode levar alguns segundos para ser entendida.
+- O APK é de *debug* (não assinado para a Play Store); serve para instalar direto no celular.

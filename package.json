@@ -6,7 +6,11 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "dev": "node --watch server/index.js"
+    "dev": "node --watch server/index.js",
+    "desktop": "electron desktop/main.cjs",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
   },
   "engines": {
     "node": ">=20"
@@ -14,6 +18,69 @@
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^1.4.0",
+    "@huggingface/transformers": "^4.3.2",
     "express": "^5.3.0"
+  },
+  "devDependencies": {
+    "electron": "^45.2.2",
+    "electron-builder": "^26.18.0"
+  },
+  "author": "Raccoon IA",
+  "build": {
+    "appId": "com.raccoonia.app",
+    "productName": "Raccoon IA",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "desktop/**",
+      "server/**",
+      "public/**",
+      "package.json",
+      "!**/*.map",
+      "!node_modules/onnxruntime-node/**",
+      "!node_modules/sharp/**",
+      "!node_modules/@img/**",
+      "!node_modules/@huggingface/transformers/dist/*.node.*",
+      "!node_modules/@huggingface/transformers/src/**",
+      "!node_modules/@huggingface/transformers/types/**",
+      "!node_modules/onnxruntime-web/**",
+      "node_modules/onnxruntime-web/package.json",
+      "node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.{wasm,mjs}",
+      "node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.asyncify.{wasm,mjs}"
+    ],
+    "extraMetadata": {
+      "main": "desktop/main.cjs"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ],
+      "icon": "desktop/icon.png",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Raccoon IA"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "desktop/icon.png",
+      "category": "public.app-category.productivity",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "O Raccoon usa o microfone para entender seus comandos de voz."
+      }
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "desktop/icon.png",
+      "category": "Utility"
+    }
   }
 }

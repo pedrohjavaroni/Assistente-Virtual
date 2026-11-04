@@ -1,6 +1,7 @@
 // Raccoon IA — app do bichinho virtual (roda no navegador, PC e celular)
 import { I18N, detectLang } from "./i18n.js";
 import { Voice } from "./voice.js";
+import { mountRaccoon } from "./raccoon.js";
 
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -12,6 +13,23 @@ const store = {
     try { localStorage.setItem("raccoon:" + key, JSON.stringify(value)); } catch { /* sem storage */ }
   },
 };
+mountRaccoon($("pet"));
+
+// Canal com o companheiro de tela (app desktop) e com a bolha do Android
+const bus = "BroadcastChannel" in window ? new BroadcastChannel("raccoon") : null;
+const native = window.RaccoonAndroid;
+const desktop = window.raccoonDesktop;
+let talking = false;
+function broadcast(msg) {
+  try { bus?.postMessage(msg); } catch {}
+  try { native?.overlayEvent?.(JSON.stringify(msg)); } catch {}
+}
+function setTalking(on) {
+  talking = on;
+  $("pet").classList.toggle("talking", on);
+  broadcast({ type: "talking", on });
+}
+
 const uid = () => Math.random().toString(36).slice(2, 9);
 const clamp = (n) => Math.max(0, Math.min(100, n));
 
@@ -78,7 +96,9 @@ function render() {
   for (const k of Object.keys(DECAY)) {
     const bar = $("bar-" + k);
     bar.style.width = pet[k] + "%";
-    bar.style.background = pet[k] > 60 ? "var(--good)" : pet[k] > 30 ? "var(--mid)" : "var(--bad)";
+    const color = pet[k] > 60 ? "var(--cyan)" : pet[k] > 30 ? "var(--amber)" : "var(--red)";
+    bar.style.background = color;
+    bar.style.color = color;
   }
   $("level").textContent = `${t("lvl")} ${level()}`;
   document.querySelectorAll(".care button").forEach((b) => {
@@ -88,6 +108,7 @@ function render() {
   const open = tasks.filter((x) => !x.done).length;
   $("taskBadge").hidden = open === 0;
   $("taskBadge").textContent = open;
+  broadcast({ type: "state", mood: currentMood(), sleeping: pet.sleeping, dirty: pet.hygiene < 35 });
 }
 
 function applyLang() {
@@ -122,6 +143,7 @@ function bubble(text, keep = false) {
 function say(text, { speak = true } = {}) {
   addMsg("pet", text);
   bubble(text);
+  broadcast({ type: "say", text });
   if (speak) speakOut(text);
 }
 
@@ -142,16 +164,16 @@ function care(action) {
     case "feed":
       if (pet.hunger > 95) { say(t("full")); setTempMood("thinking"); return; }
       pet.hunger = clamp(pet.hunger + 25); pet.hygiene = clamp(pet.hygiene - 3);
-      burst(["🍎", "🐟", "🍇", "🥜", "🍪"][Math.floor(Math.random() * 5)]);
+      burst(["🍕", "🍣", "🌮", "🍔", "🍩"][Math.floor(Math.random() * 5)]);
       setTempMood("excited"); say(t("yum"));
       break;
     case "play":
       if (pet.energy < 15) { say(t("tooTired")); setTempMood("sleepy"); return; }
       pet.fun = clamp(pet.fun + 25); pet.energy = clamp(pet.energy - 10); pet.hunger = clamp(pet.hunger - 5);
-      burst("🎾"); setTempMood("excited"); say(t("fun_yay"));
+      burst("🎮"); setTempMood("cool", 5000); say(t("fun_yay"));
       break;
     case "clean":
-      pet.hygiene = 100; burst("🫧"); burst("🫧"); setTempMood("love"); say(t("clean_yay"));
+      pet.hygiene = 100; burst("🫧"); burst("✨"); setTempMood("cool"); say(t("clean_yay"));
       break;
     case "sleep":
       pet.sleeping = !pet.sleeping;
@@ -166,7 +188,7 @@ function care(action) {
 // Comandos de voz curtos são resolvidos na hora, sem gastar IA
 const LOCAL_COMMANDS = [
   ["feed", /\b(aliment\w*|com(e|er|ida)|fome|feed|eat|food|snack|lanche)\b/i],
-  ["play", /\b(brinc\w*|jog(ar|o)|play|game)\b/i],
+  ["play", /\b(brinc\w*|jog(ar|o)|play|game|gaming)\b/i],
   ["clean", /\b(banho|limp\w*|lav\w*|clean|bath|wash)\b/i],
   ["sleep", /\b(dorm\w*|sono|nana|sleep|bed|nap|acord\w*|wake)\b/i],
 ];
@@ -182,7 +204,7 @@ function tryLocalCommand(text) {
 
 $("pet").addEventListener("click", () => {
   if (pet.sleeping) { say(t("shh"), { speak: false }); return; }
-  pet.fun = clamp(pet.fun + 3); burst("💖"); setTempMood("love", 2500);
+  pet.fun = clamp(pet.fun + 3); burst("✨"); setTempMood("love", 2500);
   store.set("pet", pet); render();
 });
 document.querySelectorAll(".care button").forEach((b) => b.addEventListener("click", () => care(b.dataset.care)));
@@ -233,7 +255,7 @@ async function ask(text) {
         if (!line) continue;
         const ev = JSON.parse(line);
         if (ev.type === "text") {
-          if (!reply) { tempMood = null; $("pet").classList.add("talking"); }
+          if (!reply) { if (tempMood === "thinking") tempMood = null; setTalking(true); }
           reply += ev.text;
           msgEl.textContent = reply;
           bubble(reply, true);
@@ -255,7 +277,8 @@ async function ask(text) {
     console.error(err);
   } finally {
     busy = false;
-    $("pet").classList.remove("talking");
+    setTalking(false);
+    broadcast({ type: "say", text: reply });
     if (tempMood === "thinking") tempMood = null;
     if (!reply) { reply = "🦝"; msgEl.textContent = reply; }
     bubble(reply);
@@ -308,18 +331,20 @@ const voice = new Voice({
   onListening(on) {
     $("micBtn").classList.toggle("on", on);
     $("pet").classList.toggle("listening", on);
+    broadcast({ type: "listening", on });
   },
   onInterim(text) { bubble("🎤 " + text, true); },
   onFinal(text) { ask(text); },
   onWake() { burst("👂"); bubble(t("listening"), true); },
-  onError(msg) { addMsg("sys", msg); },
+  onError(msg) { addMsg("sys", msg === "denied" ? t("micDenied") : `${t("micError")}: ${msg}`); },
+  onStatus(s) { if (s === "loading") addMsg("sys", t("voiceLoading")); if (s === "ready") addMsg("sys", t("voiceReady")); },
 });
 
 function speakOut(text, l = lang) {
   if (!$("speakToggle").checked) return;
   voice.speak(text, l, {
-    onStart: () => $("pet").classList.add("talking"),
-    onEnd: () => $("pet").classList.remove("talking"),
+    onStart: () => setTalking(true),
+    onEnd: () => setTalking(false),
   });
 }
 
@@ -367,7 +392,7 @@ function renderLists() {
       saveLists(); store.set("pet", pet);
     });
     const span = Object.assign(document.createElement("span"), { className: "t", textContent: task.title });
-    const del = Object.assign(document.createElement("button"), { textContent: "🗑", title: t("delete") });
+    const del = Object.assign(document.createElement("button"), { innerHTML: '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>', title: t("delete") });
     del.addEventListener("click", () => { tasks = tasks.filter((x) => x !== task); saveLists(); });
     li.append(cb, span, del);
     list.append(li);
@@ -382,7 +407,7 @@ function renderLists() {
     const when = new Date(r.at).toLocaleString(lang === "pt" ? "pt-BR" : "en-US", { dateStyle: "short", timeStyle: "short" });
     li.innerHTML = `<span class="t"></span><small>${when}</small>`;
     li.querySelector(".t").textContent = "⏰ " + r.text;
-    const del = Object.assign(document.createElement("button"), { textContent: "🗑" });
+    const del = Object.assign(document.createElement("button"), { innerHTML: '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>' });
     del.addEventListener("click", () => { reminders = reminders.filter((x) => x !== r); saveLists(); });
     li.append(del);
     rl.append(li);
@@ -406,6 +431,7 @@ function askNotifyPermission() {
 
 function checkReminders() {
   const now = Date.now();
+  reminders = store.get("reminders", reminders); // a bolha do Android pode ter disparado algum
   let changed = false;
   for (const r of reminders) {
     if (r.fired || r.at > now) continue;
@@ -414,7 +440,8 @@ function checkReminders() {
     const text = `${t("reminder")}: ${r.text}`;
     say(text);
     setTempMood("excited", 6000);
-    if ("Notification" in window && Notification.permission === "granted") {
+    if (native?.notify) native.notify(r.text);
+    else if ("Notification" in window && Notification.permission === "granted") {
       navigator.serviceWorker?.ready
         .then((reg) => reg.showNotification("Raccoon IA 🦝", { body: r.text, icon: "icons/icon.svg", tag: r.id }))
         .catch(() => new Notification("Raccoon IA 🦝", { body: r.text }));
@@ -423,6 +450,43 @@ function checkReminders() {
   // guarda só os lembretes do último dia
   reminders = reminders.filter((r) => !r.fired || now - r.at < 86_400_000);
   if (changed) saveLists();
+}
+
+// ---------- companheiro de tela ----------
+// Mensagens vindas do guaxinim que anda pela tela (PC) ou da bolha (Android)
+function onCompanion(msg) {
+  if (!msg || typeof msg !== "object") return;
+  if (msg.type === "care") care(msg.action);
+  else if (msg.type === "ask" && typeof msg.text === "string") ask(msg.text);
+  else if (msg.type === "mic") $("micBtn").click();
+  else if (msg.type === "pet") $("pet").click();
+  else if (msg.type === "hello") { render(); broadcast({ type: "talking", on: talking }); }
+}
+if (bus) bus.onmessage = (e) => onCompanion(e.data);
+window.__raccoonFromOverlay = (json) => { try { onCompanion(JSON.parse(json)); } catch {} };
+
+if (desktop || native?.toggleOverlay) {
+  document.body.classList.add("is-desktop");
+  $("companionBtn").title = t("companion");
+  $("companionBtn").addEventListener("click", async () => {
+    const on = await (desktop ? desktop.toggleCompanion() : native.toggleOverlay());
+    addMsg("sys", on ? t("companionOn") : t("companionOff"));
+  });
+}
+
+if (desktop) {
+  $("settings").hidden = false;
+  desktop.info().then((info) => {
+    if (!info.hasKey) { renderLists(); $("drawer").hidden = false; addMsg("sys", t("needKey")); }
+  });
+  $("keyForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const key = $("keyInput").value.trim();
+    if (!key) return;
+    await desktop.setApiKey(key);
+    $("keyInput").value = "";
+    addMsg("sys", t("keySaved"));
+  });
 }
 
 // ---------- início ----------

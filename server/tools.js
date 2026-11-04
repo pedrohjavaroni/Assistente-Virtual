@@ -37,13 +37,13 @@ export const TOOLS = [
     description:
       "Muda a expressão do guaxinim na tela para combinar com a conversa. Use de vez em quando, não em toda resposta.",
     input_schema: obj(
-      { mood: { type: "string", enum: ["happy", "excited", "thinking", "sad", "sleepy", "love"] } },
+      { mood: { type: "string", enum: ["happy", "excited", "thinking", "sad", "sleepy", "cool", "love"] } },
       ["mood"],
     ),
   },
 ].map((tool) => ({ ...tool, strict: true, eager_input_streaming: true }));
 
-const MOODS = new Set(["happy", "excited", "thinking", "sad", "sleepy", "love"]);
+const MOODS = new Set(["happy", "excited", "thinking", "sad", "sleepy", "cool", "love"]);
 const isText = (v, max = 300) => typeof v === "string" && v.trim().length > 0 && v.length <= max;
 
 /** Retorna uma mensagem de erro, ou null se a entrada for válida. */
