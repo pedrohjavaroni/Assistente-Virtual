@@ -17,6 +17,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; }
 body {
   background:
@@ -155,6 +156,12 @@ svg:not(.rc) { width: 22px; height: 22px; fill: none; stroke: currentColor; stro
 .task-list button { border: 0; background: none; color: var(--muted); }
 .task-list button svg { width: 18px; height: 18px; }
 .hint { color: var(--muted); font-size: .78rem; margin-top: 22px; }
+.gcal .hint { margin: 0 0 10px; display: block; }
+.gcal-form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.gcal-form input { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--glass); color: var(--ink); min-width: 0; }
+.btn { border: 0; border-radius: 12px; padding: 11px 14px; background: var(--cyan); color: #04121a; font-weight: 700; width: 100%; margin-bottom: 8px; }
+.btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); margin-top: 8px; }
+.task-list li .when { color: var(--cyan); font-size: .75rem; font-weight: 700; white-space: nowrap; }
 
 .companion-btn { display: none; }
 .is-desktop .companion-btn { display: grid; }

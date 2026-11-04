@@ -10,6 +10,7 @@ Um guaxinim virtual com inteligência artificial (Claude) que **fica na sua tela
   bolha flutuante por cima dos outros apps.
 - **Assistente**: responde perguntas, ajuda nos estudos e no trabalho, cria tarefas e lembretes.
 - **Tamagotchi**: fome, energia, vibe e estilo caem com o tempo. Dá pra dar comida, jogar, dormir e tomar banho, e ele sobe de nível.
+- **Google Agenda**: "o que eu tenho hoje?", "marca dentista quinta às 15h". Ele também avisa uns 10 minutos antes de cada compromisso ([como conectar](docs/google-agenda.md)).
 - **Voz**: botão do microfone ou modo mãos-livres "Ei Raccoon", com as respostas faladas no idioma em que você falou.
 
 <br clear="right"/>
@@ -60,10 +61,15 @@ Para usar fora do Wi-Fi de casa, publique o servidor (Render, Railway, Fly.io, u
 npm start   # http://localhost:3000
 ```
 
+### Google Agenda
+
+Precisa criar uma chave grátis no Google Cloud uma vez (~5 min) e conectar pelo computador:
+passo a passo em **[docs/google-agenda.md](docs/google-agenda.md)**.
+
 ## Estrutura
 
 ```
-server/       servidor: ponte com a API do Claude (streaming), personalidade e ferramentas
+server/       servidor: ponte com a API do Claude (streaming), personalidade, ferramentas e Google Agenda
 public/       app web (também usado dentro do desktop e do Android)
   raccoon.js / raccoon.css   o guaxinim em SVG + animações e expressões
   app.js                     tamagotchi, chat, tarefas, lembretes

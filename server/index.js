@@ -7,7 +7,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import Anthropic from "@anthropic-ai/sdk";
-import { TOOLS, validateToolInput } from "./tools.js";
+import { TOOLS, CALENDAR_TOOLS, SERVER_TOOL_NAMES, validateToolInput } from "./tools.js";
+import * as google from "./google.js";
 import { buildSystemPrompt } from "./prompt.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -47,7 +48,10 @@ app.get("/api/health", (_req, res) => {
  *   {type:"error", message}
  */
 app.post("/api/chat", async (req, res) => {
-  const { messages, lang = "pt", pet = {}, tasks = [] } = req.body ?? {};
+  const { messages, lang = "pt", pet = {}, tasks = [], tz: rawTz } = req.body ?? {};
+  const tz = typeof rawTz === "string" && google.validTz(rawTz) ? rawTz : "America/Sao_Paulo";
+  const calendar = google.status();
+  const tools = calendar.connected ? [...TOOLS, ...CALENDAR_TOOLS] : TOOLS;
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: "messages obrigatório" });
   }
@@ -65,7 +69,7 @@ app.post("/api/chat", async (req, res) => {
   // Histórico só cresce (append-only): mandamos de volta o conteúdo completo
   // de cada resposta, incluindo blocos de thinking, para manter o contexto válido.
   const history = [...messages];
-  const system = buildSystemPrompt({ lang, pet, tasks, now: new Date() });
+  const system = buildSystemPrompt({ lang, pet, tasks, now: new Date(), tz, calendar });
 
   try {
     for (let round = 0; round < MAX_TOOL_ROUNDS && !aborted; round++) {
@@ -76,7 +80,7 @@ app.post("/api/chat", async (req, res) => {
         fallbacks: "default",
         output_config: { effort: "low" },
         system,
-        tools: TOOLS,
+        tools,
         messages: history,
       });
 
@@ -105,6 +109,18 @@ app.post("/api/chat", async (req, res) => {
           results.push({ type: "tool_result", tool_use_id: block.id, is_error: true, content: error });
           continue;
         }
+        if (SERVER_TOOL_NAMES.has(block.name)) {
+          // Google Agenda: executa aqui e devolve o resultado para a IA
+          send({ type: "action", name: "calendar_busy", input: {} });
+          try {
+            const result = await runCalendarTool(block.name, block.input, tz);
+            results.push({ type: "tool_result", tool_use_id: block.id, content: JSON.stringify(result) });
+            if (block.name !== "calendar_list_events") send({ type: "action", name: "calendar_changed", input: {} });
+          } catch (err) {
+            results.push({ type: "tool_result", tool_use_id: block.id, is_error: true, content: String(err.message || err) });
+          }
+          continue;
+        }
         send({ type: "action", name: block.name, input: block.input });
         results.push({ type: "tool_result", tool_use_id: block.id, content: "ok" });
       }
@@ -121,6 +137,56 @@ app.post("/api/chat", async (req, res) => {
     send({ type: "error", message });
   } finally {
     res.end();
+  }
+});
+
+function runCalendarTool(name, input, tz) {
+  if (name === "calendar_list_events") return google.listEvents(input, tz);
+  if (name === "calendar_create_event") return google.createEvent(input, tz);
+  if (name === "calendar_delete_event") return google.deleteEvent(input);
+  throw new Error("ferramenta desconhecida");
+}
+
+// ---------- Google Agenda ----------
+// Configurar e conectar só a partir do próprio computador (o login do Google exige 127.0.0.1)
+const isLocal = (req) => ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress);
+const localOnly = (req, res, next) => (isLocal(req) ? next() : res.status(403).json({ error: "Faça isso no computador onde o Raccoon está rodando." }));
+
+app.get("/api/google/status", (req, res) => res.json({ ...google.status(), local: isLocal(req) }));
+app.post("/api/google/config", localOnly, (req, res) => {
+  const { clientId, clientSecret } = req.body ?? {};
+  if (typeof clientId !== "string" || !clientId.includes(".apps.googleusercontent.com") || typeof clientSecret !== "string" || clientSecret.length < 8) {
+    return res.status(400).json({ error: "Client ID ou Client Secret inválido." });
+  }
+  google.saveCredentials({ clientId, clientSecret });
+  res.json(google.status());
+});
+app.post("/api/google/disconnect", localOnly, (_req, res) => { google.disconnect(); res.json(google.status()); });
+app.get("/auth/google", localOnly, (req, res) => {
+  if (!google.status().configured) return res.status(400).send("Configure o Client ID e o Client Secret primeiro.");
+  const redirect = `http://127.0.0.1:${req.socket.localPort}/auth/google/callback`;
+  res.redirect(google.authUrl(redirect));
+});
+app.get("/auth/google/callback", localOnly, async (req, res) => {
+  const page = (title, msg) => `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Raccoon IA</title>
+    <body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#0d0e17;color:#e9ecf5;font:16px system-ui;text-align:center">
+    <div><h2 style="color:#3ef0d0">${title}</h2><p>${msg}</p></div></body>`;
+  const esc = (v) => String(v).replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" })[c]);
+  if (req.query.error) return res.send(page("Não conectado", "Você cancelou ou o Google recusou: " + esc(req.query.error)));
+  try {
+    await google.finishAuth(String(req.query.code || ""), String(req.query.state || ""));
+    res.send(page("Google Agenda conectada ✓", "Pode fechar esta aba e voltar pro Raccoon."));
+  } catch (err) {
+    res.status(400).send(page("Não deu certo", esc(err.message)));
+  }
+});
+app.get("/api/google/upcoming", async (req, res) => {
+  const tz = google.validTz(String(req.query.tz)) ? String(req.query.tz) : "America/Sao_Paulo";
+  if (!google.status().connected) return res.json({ connected: false, events: [] });
+  try {
+    res.json({ connected: true, events: await google.upcoming(tz, Math.min(Number(req.query.minutes) || 1440, 10080)) });
+  } catch (err) {
+    res.status(502).json({ connected: google.status().connected, error: String(err.message || err), events: [] });
   }
 });
 

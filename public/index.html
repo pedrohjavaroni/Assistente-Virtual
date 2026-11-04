@@ -68,6 +68,19 @@
     <ul id="taskList" class="task-list"></ul>
     <h3 data-i18n="reminders">Lembretes</h3>
     <ul id="reminderList" class="task-list"></ul>
+    <h3 data-i18n="calendar">Google Agenda</h3>
+    <div id="gcal" class="gcal">
+      <p class="hint" id="gcalMsg"></p>
+      <form id="gcalConfig" class="gcal-form" hidden>
+        <input id="gcalId" placeholder="Client ID (....apps.googleusercontent.com)" autocomplete="off" />
+        <input id="gcalSecret" type="password" placeholder="Client Secret" autocomplete="off" />
+        <button class="btn" data-i18n="save">Salvar</button>
+        <a class="hint" href="https://github.com/pedrohjavaroni/Assistente-Virtual/blob/claude/amazing-fermat-qm2990/docs/google-agenda.md" target="_blank" rel="noopener" data-i18n="gcalHow">Como conseguir essas chaves?</a>
+      </form>
+      <button class="btn" id="gcalConnect" hidden data-i18n="gcalConnect">Conectar Google Agenda</button>
+      <ul id="gcalList" class="task-list"></ul>
+      <button class="btn ghost" id="gcalDisconnect" hidden data-i18n="gcalDisconnect">Desconectar</button>
+    </div>
     <div id="settings" hidden>
       <h3 data-i18n="apiKey">Chave da API do Claude</h3>
       <form id="keyForm" class="task-form">

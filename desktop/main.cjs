@@ -28,6 +28,7 @@ async function boot() {
   const envFile = path.join(ROOT, ".env");
   if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
   loadConfig();
+  process.env.RACCOON_DATA_DIR = app.getPath("userData"); // token do Google Agenda fica aqui
   const { startServer } = await import(pathToFileURL(path.join(ROOT, "server", "index.js")).href);
   try { port = await startServer(PREFERRED_PORT, "127.0.0.1"); }
   catch { port = await startServer(0, "127.0.0.1"); }

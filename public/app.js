@@ -238,6 +238,7 @@ async function ask(text) {
         lang,
         pet: { ...pet, level: level(), clientNow: localIsoNow() },
         tasks,
+        tz: TZ,
       }),
     });
     if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
@@ -315,6 +316,12 @@ function handleAction(name, input) {
     case "set_mood":
       setTempMood(input.mood, 5000);
       break;
+    case "calendar_busy":
+      burst("📅");
+      return;
+    case "calendar_changed":
+      refreshCalendar();
+      return;
   }
   saveLists();
 }
@@ -422,7 +429,7 @@ $("taskForm").addEventListener("submit", (e) => {
   $("taskInput").value = "";
   saveLists();
 });
-$("tasksBtn").addEventListener("click", () => { renderLists(); $("drawer").hidden = false; });
+$("tasksBtn").addEventListener("click", () => { renderLists(); refreshCalendar(); $("drawer").hidden = false; });
 $("closeDrawer").addEventListener("click", () => { $("drawer").hidden = true; });
 
 function askNotifyPermission() {
@@ -488,6 +495,101 @@ if (desktop) {
     addMsg("sys", t("keySaved"));
   });
 }
+
+// ---------- Google Agenda ----------
+const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Sao_Paulo";
+let gcal = { connected: false };
+let gcalEvents = [];
+const alerted = store.get("gcalAlerted", {});
+
+async function refreshCalendar() {
+  try {
+    gcal = await (await fetch("api/google/status")).json();
+  } catch { return; }
+  const msg = $("gcalMsg");
+  $("gcalConfig").hidden = !(gcal.local && !gcal.configured);
+  $("gcalConnect").hidden = !(gcal.local && gcal.configured && !gcal.connected);
+  $("gcalDisconnect").hidden = !(gcal.local && gcal.connected);
+  if (gcal.connected) msg.textContent = t(gcal.local ? "gcalConnected" : "gcalRemoteOn").replace("{email}", gcal.email || "Google");
+  else if (!gcal.local) msg.textContent = t("gcalRemote");
+  else msg.textContent = gcal.configured ? t("gcalReady") : t("gcalNeedConfig");
+  await loadEvents();
+}
+
+async function loadEvents() {
+  const list = $("gcalList");
+  list.replaceChildren();
+  if (!gcal.connected) { gcalEvents = []; return; }
+  try {
+    const r = await (await fetch(`api/google/upcoming?minutes=1440&tz=${encodeURIComponent(TZ)}`)).json();
+    if (r.error) throw new Error(r.error);
+    gcalEvents = r.events;
+  } catch {
+    list.innerHTML = `<li><small>${t("gcalError")}</small></li>`;
+    return;
+  }
+  if (!gcalEvents.length) list.innerHTML = `<li><small>${t("gcalEmpty")}</small></li>`;
+  for (const ev of gcalEvents) {
+    const li = document.createElement("li");
+    const when = Object.assign(document.createElement("span"), {
+      className: "when",
+      textContent: ev.all_day ? "—" : new Date(ev.startsAt).toLocaleTimeString(lang === "pt" ? "pt-BR" : "en-US", { hour: "2-digit", minute: "2-digit" }),
+    });
+    const title = Object.assign(document.createElement("span"), { className: "t", textContent: ev.title });
+    li.append(when, title);
+    list.append(li);
+  }
+}
+
+// avisa ~10 minutos antes de cada compromisso
+function checkCalendarAlerts() {
+  const now = Date.now();
+  for (const ev of gcalEvents) {
+    if (ev.all_day || alerted[ev.id] === ev.startsAt) continue;
+    const mins = Math.round((ev.startsAt - now) / 60_000);
+    if (mins > 10 || mins < -1) continue;
+    alerted[ev.id] = ev.startsAt;
+    const text = mins <= 0 ? t("gcalNowEvt").replace("{title}", ev.title) : t("gcalSoon").replace("{n}", mins).replace("{title}", ev.title);
+    say("📅 " + text);
+    setTempMood("excited", 6000);
+    if (native?.notify) native.notify(text);
+    else if ("Notification" in window && Notification.permission === "granted") {
+      navigator.serviceWorker?.ready.then((reg) => reg.showNotification("Raccoon IA", { body: text, icon: "icons/icon-512.png", tag: ev.id })).catch(() => {});
+    }
+  }
+  for (const id of Object.keys(alerted)) if (alerted[id] < now - 86_400_000) delete alerted[id];
+  store.set("gcalAlerted", alerted);
+}
+
+$("gcalConfig").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const res = await fetch("api/google/config", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ clientId: $("gcalId").value.trim(), clientSecret: $("gcalSecret").value.trim() }),
+  });
+  if (!res.ok) { addMsg("sys", (await res.json().catch(() => ({}))).error || t("gcalError")); return; }
+  $("gcalSecret").value = "";
+  refreshCalendar();
+});
+$("gcalConnect").addEventListener("click", () => {
+  window.open("auth/google", "_blank");
+  $("gcalMsg").textContent = t("gcalWaiting");
+  let tries = 0;
+  const poll = setInterval(async () => {
+    tries++;
+    await refreshCalendar();
+    if (gcal.connected) { clearInterval(poll); say(t("gcalNow")); }
+    else if (tries > 60) clearInterval(poll);
+  }, 3000);
+});
+$("gcalDisconnect").addEventListener("click", async () => {
+  await fetch("api/google/disconnect", { method: "POST" });
+  refreshCalendar();
+});
+
+refreshCalendar();
+setInterval(() => gcal.connected && loadEvents(), 5 * 60_000);
+setInterval(checkCalendarAlerts, 30_000);
 
 // ---------- início ----------
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
