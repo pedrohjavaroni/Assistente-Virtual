@@ -4,7 +4,7 @@
 
 **A.R.G.O.S.** — Agente de Redes sociais, Gestão, Otimização e Suporte.
 
-Assistente pessoal de IA (Claude) que **mora no seu computador**: liga junto com o PC, ouve quando você diz
+Assistente pessoal de IA que **mora no seu computador** e funciona **de graça**: liga junto com o PC, ouve quando você diz
 **"Argos"**, responde com **voz neural local** e age de verdade na máquina.
 
 - **Sempre ligado**: inicia com o computador, fica na bandeja do sistema e num orbe flutuante por cima das janelas.
@@ -16,21 +16,24 @@ Assistente pessoal de IA (Claude) que **mora no seu computador**: liga junto com
 - **Edita vídeos**: corta, deixa vertical para Reels, tira as pausas, junta, acelera, extrai o áudio.
 - **Instagram**: ideias, roteiros, legendas e calendário; com a conta conectada, métricas, publicação e agendamento.
 - **Agenda e rotina**: Google Agenda, tarefas, lembretes falados e memória permanente do que você pedir para lembrar.
-- **Internet**: pesquisa notícias, clima e tendências quando precisa.
+- **Grátis e privado**: a inteligência roda no seu PC com um modelo aberto (Ollama). Dá para trocar pelo Claude (pago) se quiser mais qualidade.
 
 <br clear="right"/>
 
 ## Instalar
 
-Precisa de uma chave da API do Claude (https://console.anthropic.com). O uso da IA é cobrado pela Anthropic conforme o consumo.
+### 1. Ollama (o "cérebro", grátis)
 
-### Instalador (recomendado)
+Baixe e instale o [Ollama](https://ollama.com/download). Deixe ele aberto: é ele que roda o modelo de IA na sua placa de vídeo.
+O Argos baixa o modelo sozinho na primeira vez (`qwen3-vl:8b`, cerca de 6 GB).
 
-No GitHub: **Actions → Build apps → Run workflow**. Quando terminar, baixe o `.exe` (Windows) ou `.dmg` (macOS) nos artefatos e instale.
+Recomendado: placa de vídeo com 8 GB (ex.: RTX 3060 Ti) e 16 GB de RAM. Em máquina mais fraca, troque o modelo por `qwen3-vl:4b` em Configurações.
 
-### Pelo código
+### 2. Argos
 
-Com **Node.js 20+**:
+**Instalador:** no GitHub, **Actions → Build apps → Run workflow**. Quando terminar, baixe o `.exe` (Windows) ou `.dmg` (macOS) nos artefatos e instale.
+
+**Pelo código**, com Node.js 20+:
 
 ```bash
 npm install
@@ -41,9 +44,14 @@ npm run desktop
 
 ### Primeira vez
 
-1. Cole a chave da API em **Configurações**.
-2. Ele baixa sozinho as vozes (~150 MB) e, na primeira vez que ouvir, o reconhecimento de fala (~80 MB). Depois disso funcionam offline.
+1. Abra o Argos. Ele baixa sozinho o modelo de IA (~6 GB), as vozes (~150 MB) e, na primeira vez que ouvir, o reconhecimento de fala (~80 MB). **Configurações** mostra o andamento.
+2. Depois disso a conversa, a voz e o controle do PC funcionam offline e sem custo (Instagram e agenda continuam precisando de internet).
 3. Diga *"Argos, bom dia"*.
+
+### Usar o Claude no lugar (opcional, pago)
+
+Em **Configurações → Inteligência**, escolha Claude e cole uma chave da API (https://console.anthropic.com). É cobrado por uso pela Anthropic.
+Em troca, ele entende melhor pedidos complicados, erra menos ao usar as ferramentas e ganha pesquisa na internet.
 
 O app instalado já se registra para **iniciar com o computador** (dá para desligar em Configurações ou no menu da bandeja).
 Fechar a janela não encerra: ele continua na bandeja ouvindo. Para sair de vez: botão direito no ícone da bandeja → **Sair**.
@@ -78,15 +86,19 @@ Em **Configurações → Assistente** você também troca o nome (que é a palav
 
 ## Segurança e privacidade
 
-- A chave da API, os tokens e a memória ficam só no seu computador (pasta de dados do app).
+- No modo local, suas conversas e as capturas de tela não saem do computador.
+- Os tokens e a memória ficam só no seu computador (pasta de dados do app).
 - O servidor interno só atende o próprio computador, e sites abertos no navegador não conseguem comandar o Argos.
 - Arquivos: só dentro das pastas liberadas (Área de Trabalho, Documentos, Downloads, Imagens, Vídeos, Músicas e as que você adicionar). Ele cria arquivos novos, nunca apaga nem sobrescreve.
 - Desligar/reiniciar o PC, publicar no Instagram e apagar compromissos só acontecem depois de você confirmar.
-- A tela só é capturada quando o seu pedido envolve a tela. A imagem vai para a API do Claude para ser analisada.
-- O áudio do microfone é transcrito no próprio PC; só o texto do pedido vai para a API.
+- A tela só é capturada quando o seu pedido envolve a tela.
+- O áudio do microfone é transcrito no próprio PC. No modo Claude, o texto do pedido e as capturas de tela vão para a API da Anthropic.
 
 ## Limitações conhecidas
 
+- O modelo local é menos esperto que o Claude: pode entender errado um pedido complicado ou escolher a ferramenta errada. Pedidos diretos funcionam melhor.
+- No modo local ele não pesquisa na internet (pode abrir a busca no navegador para você).
+- Enquanto o modelo está carregado, ele ocupa boa parte da memória da placa de vídeo; jogos e edição pesada ao mesmo tempo podem ficar lentos.
 - O foco é **Windows**. No macOS e no Linux, abrir apps, arquivos, voz e vídeo funcionam, mas alguns controles do sistema (teclas de mídia no macOS, início automático no Linux) não.
 - A palavra de ativação usa o Whisper local: em PC mais fraco, cada frase pode levar alguns segundos para ser entendida.
 - Foto para o Instagram precisa estar num link público (regra da API); Reels pode sair direto do computador.
@@ -97,14 +109,14 @@ Em **Configurações → Assistente** você também troca o nome (que é a palav
 ```
 desktop/      app Electron: início automático, bandeja, orbe flutuante, captura de tela, atalho global
 server/       servidor local
-  index.js      conversa com o Claude (streaming), execução das ferramentas, confirmações
+  index.js      conversa com a IA (streaming), execução das ferramentas, confirmações
   tools.js      definição das ferramentas      prompt.js   personalidade e contexto
   pc.js         apps, sites, sistema, arquivos  video.js    edição com ffmpeg
   tts.js        voz Piper                       instagram.js / google.js   contas
-  config.js     configurações e memória
+  local.js      IA local pelo Ollama            config.js   configurações e memória
 public/       interface (janela principal e orbe)
 docs/         guias de conexão
 ```
 
-Modelo padrão: `claude-opus-5-5` com esforço baixo, para respostas rápidas por voz (`ARGOS_MODEL` no `.env` troca).
+No modo Claude, o modelo padrão é `claude-opus-5-5` com esforço baixo, para respostas rápidas por voz (`ARGOS_MODEL` no `.env` troca).
 Também dá para rodar só o servidor e usar pelo navegador (`npm start`, http://localhost:3000), sem orbe, captura de tela nem palavra de ativação automática.

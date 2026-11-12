@@ -347,8 +347,24 @@ function renderSettings(s) {
   $("igForm").hidden = ig.connected && !ig.error;
   $("igDisconnect").hidden = !ig.connected;
 
-  $("keySection").hidden = !desktop;
-  $("keyMsg").textContent = s.hasKey ? "Chave salva neste computador. Para trocar, cole a nova." : "É o que liga o Argos à IA. Crie em console.anthropic.com; ela fica salva só neste computador.";
+  // cérebro: IA local (Ollama) ou Claude
+  const ai = s.ai, L = ai.local;
+  $("aiProvider").value = ai.provider;
+  $("localModel").value = ai.localModel;
+  $("localSection").hidden = ai.provider !== "local";
+  $("keySection").hidden = ai.provider !== "claude" || !desktop;
+  $("keyMsg").textContent = s.hasKey ? "Chave salva neste computador. Para trocar, cole a nova." : "Cole a chave da API do Claude (console.anthropic.com). Ela fica salva só neste computador.";
+  let msg = "", bad = false;
+  if (ai.provider === "claude") { msg = s.hasKey ? "Usando o Claude pela API da Anthropic (cobrado por uso)." : "Falta a chave da API do Claude."; bad = !s.hasKey; }
+  else if (!L.running) { msg = "Não encontrei o Ollama. Instale em ollama.com (grátis), deixe ele aberto e volte aqui."; bad = true; }
+  else if (L.pull.busy) msg = `Baixando o modelo ${L.model}: ${L.pull.percent}%. São alguns GB; só na primeira vez.`;
+  else if (L.pull.error) { msg = "Não consegui baixar o modelo: " + L.pull.error; bad = true; }
+  else if (!L.hasModel) msg = `O modelo ${L.model} ainda não está instalado.`;
+  else msg = `Pronto: ${L.model} rodando neste computador, sem custo e sem enviar suas conversas para fora.`;
+  $("aiMsg").className = "muted" + (bad ? " err" : "");
+  $("aiMsg").textContent = msg;
+  if (ai.provider === "local" && (L.pull.busy || !L.running) && !$("settingsDrawer").hidden) { clearTimeout(ttsPoll); ttsPoll = setTimeout(loadSettings, 3000); }
+  return !bad && (ai.provider === "claude" || L.hasModel);
 }
 
 async function loadSettings() {
@@ -366,6 +382,8 @@ async function saveSettings(patch) {
   renderSettings(body);
 }
 
+$("aiProvider").addEventListener("change", (e) => saveSettings({ ai: { provider: e.target.value } }));
+$("localModel").addEventListener("change", (e) => saveSettings({ ai: { localModel: e.target.value } }));
 $("nameInput").addEventListener("change", (e) => saveSettings({ name: e.target.value }));
 $("titleInput").addEventListener("change", (e) => saveSettings({ title: e.target.value }));
 $("voicePt").addEventListener("change", (e) => saveSettings({ voice: { pt: e.target.value } }));
@@ -420,7 +438,6 @@ if (desktop) {
     $("autostartToggle").checked = info.autostart;
     $("autostartRow").hidden = !info.canAutostart;
     $("orbToggle").checked = info.orb;
-    if (!info.hasKey) { openDrawer("settingsDrawer"); desktop.showMain(); addMsg("sys", "Falta a chave da API do Claude: coloque em Configurações."); }
   });
   $("autostartToggle").addEventListener("change", (e) => desktop.setAutostart(e.target.checked));
   $("orbToggle").addEventListener("change", (e) => desktop.setOrb(e.target.checked));
@@ -522,7 +539,11 @@ try {
 async function start() {
   try {
     const res = await fetch("api/settings");
-    if (res.ok) applyConfig(await res.json());
+    if (res.ok) {
+      const ready = renderSettings(await res.json());
+      // falta instalar algo para ele pensar: abre as configurações já na primeira vez
+      if (!ready) { openDrawer("settingsDrawer"); desktop?.showMain(); }
+    }
     else { const h = await (await fetch("api/health")).json(); applyConfig({ ...cfg, name: h.name || "Argos" }); }
   } catch {}
   renderLists();

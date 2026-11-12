@@ -15,6 +15,7 @@ import * as pc from "./pc.js";
 import * as tts from "./tts.js";
 import * as instagram from "./instagram.js";
 import { videoEdit } from "./video.js";
+import * as localAI from "./local.js";
 
 export { setDesktopBridge } from "./pc.js";
 
@@ -55,7 +56,7 @@ function isLocal(req) {
 const localOnly = (req, res, next) => (isLocal(req) ? next() : res.status(403).json({ error: "Faça isso no computador onde o Argos está rodando." }));
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, model: MODEL, hasKey: Boolean(process.env.ANTHROPIC_API_KEY), name: getConfig().name });
+  res.json({ ok: true, provider: provider(), model: provider() === "claude" ? MODEL : getConfig().ai.localModel, name: getConfig().name });
 });
 
 // ---------- avisos do servidor para a interface (ex: post agendado publicado) ----------
@@ -73,19 +74,21 @@ function notify(text) { for (const res of listeners) res.write(`data: ${JSON.str
 // O histórico fica aqui no servidor e só cresce (nunca é editado). O prompt e a lista de
 // ferramentas ficam fixos durante a conversa; se algo mudar (ex: Instagram conectado), começa outra.
 const sessions = new Map();
+const provider = () => (getConfig().ai.provider === "claude" ? "claude" : "local");
 function getSession(id, local) {
   const cfg = getConfig();
-  const calendar = google.status(), ig = instagram.connected();
-  const sig = [local, calendar.connected, ig, cfg.name, cfg.title].join("|");
+  const calendar = google.status(), ig = instagram.connected(), ai = provider();
+  const sig = [local, calendar.connected, ig, cfg.name, cfg.title, ai, cfg.ai.localModel].join("|");
   const key = `${id}:${local}`;
   let s = sessions.get(key);
-  if (!s || s.sig !== sig || Date.now() - s.last > 30 * 60_000 || s.history.length > 80) {
+  if (!s || s.sig !== sig || Date.now() - s.last > 30 * 60_000 || (ai === "claude" && s.history.length > 80)) {
     const custom = [...APP_TOOLS, ...MEMORY_TOOLS, ...(calendar.connected ? CALENDAR_TOOLS : []),
       ...(local ? PC_TOOLS : []), ...(local && ig ? INSTAGRAM_TOOLS : [])];
+    const system = buildSystemPrompt({ local, calendar, instagram: ig, webSearch: ai === "claude" });
     s = {
-      sig, history: [], busy: false,
-      system: buildSystemPrompt({ local, calendar, instagram: ig }),
-      tools: [...custom, WEB_SEARCH],
+      sig, ai, history: [], busy: false, custom,
+      system, systemText: system.map((b) => b.text).join("\n\n"),
+      tools: [...custom, WEB_SEARCH], // a busca na web roda nos servidores da Anthropic (só no modo Claude)
       byName: new Map(custom.map((t) => [t.name, t])),
     };
     sessions.set(key, s);
@@ -99,7 +102,7 @@ function getSession(id, local) {
 // e a ferramenta só executa se for chamada de novo, igualzinha, em uma mensagem posterior do usuário.
 const pending = new Map();
 function confirmed(name, input, requestId) {
-  const key = name + JSON.stringify(input);
+  const key = name + JSON.stringify(Object.keys(input).sort().map((k) => [k, input[k]])); // não depende da ordem dos campos
   const p = pending.get(key);
   if (p && p.requestId !== requestId && Date.now() - p.at < 5 * 60_000) { pending.delete(key); return true; }
   pending.set(key, { requestId, at: Date.now() });
@@ -172,6 +175,94 @@ async function runTool(name, input, { tz, requestId, send }) {
  *   {type:"done"} | {type:"error", message}
  */
 let requestCounter = 0;
+
+/** Valida e executa uma chamada de ferramenta. Retorna { content, isError }. */
+async function callTool(session, name, input, ctx) {
+  const error = validateToolInput(session.byName.get(name), input);
+  if (error) return { content: error, isError: true };
+  if (APP_TOOL_NAMES.has(name)) { ctx.send({ type: "action", name, input }); return { content: "ok" }; }
+  ctx.send({ type: "status", text: STATUS[name] || "Trabalhando" });
+  try {
+    const out = await runTool(name, input, ctx);
+    return { content: typeof out === "string" || Array.isArray(out) ? out : JSON.stringify(out ?? "ok") };
+  } catch (err) {
+    return { content: String(err.message || err).slice(0, 1000), isError: true };
+  }
+}
+
+// ----- modo Claude (API da Anthropic) -----
+async function runClaude(session, userText, context, ctx) {
+  const { history } = session;
+  history.push({ role: "user", content: [{ type: "text", text: context }, { type: "text", text: userText }] });
+  for (let round = 0; round < MAX_ROUNDS; round++) {
+    const stream = getClient().beta.messages.stream({
+      model: MODEL,
+      max_tokens: 16000,
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      output_config: { effort: "low" }, // respostas rápidas: é uma conversa por voz
+      cache_control: { type: "ephemeral" },
+      system: session.system,
+      tools: session.tools,
+      messages: history,
+    });
+    stream.on("text", (delta) => ctx.send({ type: "text", text: delta }));
+    const message = await stream.finalMessage();
+    history.push({ role: "assistant", content: message.content });
+
+    if (message.stop_reason === "refusal") { ctx.send({ type: "text", text: "Receio não poder ajudar com isso." }); break; }
+    if (message.stop_reason === "pause_turn") continue; // busca na web em andamento: o servidor continua de onde parou
+    if (message.stop_reason !== "tool_use") break;
+
+    const results = [];
+    for (const block of message.content) {
+      if (block.type !== "tool_use") continue;
+      const r = await callTool(session, block.name, block.input, ctx);
+      results.push({ type: "tool_result", tool_use_id: block.id, content: r.content, ...(r.isError ? { is_error: true } : {}) });
+    }
+    history.push({ role: "user", content: results });
+  }
+}
+
+// ----- modo local (Ollama, grátis) -----
+async function runLocal(session, userText, context, ctx) {
+  const h = session.history;
+  h.push({ role: "user", turn: true, text: `${context}\n\n${userText}` });
+  for (let round = 0; round < MAX_ROUNDS; round++) {
+    const { text, calls } = await localAI.chat({
+      system: session.systemText, history: h, tools: session.custom, signal: ctx.signal,
+      onText: (delta) => ctx.send({ type: "text", text: delta }),
+    });
+    h.push({ role: "assistant", text, calls });
+    if (!calls.length) break;
+    const images = [];
+    for (const call of calls) {
+      const r = await callTool(session, call.name, call.input, ctx);
+      let content = r.content;
+      if (Array.isArray(content)) { // captura de tela: a imagem segue numa mensagem à parte
+        images.push(...content.filter((b) => b.type === "image").map((b) => b.source.data));
+        content = "Captura feita. A imagem está na próxima mensagem.";
+      }
+      h.push({ role: "tool", name: call.name, text: (r.isError ? "ERRO: " : "") + content });
+    }
+    if (images.length) h.push({ role: "user", text: "Esta é a captura da tela do usuário neste momento.", images });
+  }
+  // modelos locais têm pouca memória de contexto: guarda só as últimas trocas
+  if (h.length > 24) {
+    const cut = h.findIndex((m, i) => i >= h.length - 16 && m.turn);
+    h.splice(0, cut > 0 ? cut : h.length - 1);
+  }
+}
+
+/**
+ * POST /api/chat
+ * body: { text, session, tasks: [...], tz, clientNow }
+ * resposta: text/event-stream com eventos
+ *   {type:"text", text}            pedaço da fala
+ *   {type:"status", text}          o que ele está fazendo (ferramenta em uso)
+ *   {type:"action", name, input}   ação para a interface executar (tarefa, lembrete, cartão)
+ *   {type:"done"} | {type:"error", message}
+ */
 app.post("/api/chat", async (req, res) => {
   const { text, session: sid = "default", tasks = [], tz: rawTz, clientNow } = req.body ?? {};
   if (typeof text !== "string" || !text.trim() || text.length > 8000) return res.status(400).json({ error: "text obrigatório" });
@@ -179,68 +270,30 @@ app.post("/api/chat", async (req, res) => {
   const session = getSession(String(sid).slice(0, 64), isLocal(req));
   if (session.busy) return res.status(409).json({ error: "ainda estou respondendo o pedido anterior" });
   session.busy = true;
-  const requestId = ++requestCounter;
 
   res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache", Connection: "keep-alive" });
+  const abort = new AbortController();
   let aborted = false;
-  res.on("close", () => { aborted = true; });
+  res.on("close", () => { aborted = true; abort.abort(); });
   const send = (event) => { if (!aborted) res.write(`data: ${JSON.stringify(event)}\n\n`); };
+  const ctx = { tz, requestId: ++requestCounter, send, signal: abort.signal };
 
-  const { history } = session;
-  const checkpoint = history.length; // se der erro no meio, a conversa volta para cá
-  history.push({ role: "user", content: [{ type: "text", text: turnContext({ clientNow, tz, tasks }) }, { type: "text", text: text.trim() }] });
-
+  const checkpoint = session.history.length; // se der erro no meio, a conversa volta para cá
+  const context = turnContext({ clientNow, tz, tasks });
   try {
-    for (let round = 0; round < MAX_ROUNDS; round++) {
-      const stream = getClient().beta.messages.stream({
-        model: MODEL,
-        max_tokens: 16000,
-        betas: ["server-side-fallback-2026-07-01"],
-        fallbacks: "default",
-        output_config: { effort: "low" }, // respostas rápidas: é uma conversa por voz
-        cache_control: { type: "ephemeral" },
-        system: session.system,
-        tools: session.tools,
-        messages: history,
-      });
-      stream.on("text", (delta) => send({ type: "text", text: delta }));
-      const message = await stream.finalMessage();
-      history.push({ role: "assistant", content: message.content });
-
-      if (message.stop_reason === "refusal") { send({ type: "text", text: "Receio não poder ajudar com isso." }); break; }
-      if (message.stop_reason === "pause_turn") continue; // busca na web em andamento: o servidor continua de onde parou
-      if (message.stop_reason !== "tool_use") break;
-
-      const results = [];
-      for (const block of message.content) {
-        if (block.type !== "tool_use") continue;
-        const result = { type: "tool_result", tool_use_id: block.id };
-        const error = validateToolInput(session.byName.get(block.name), block.input);
-        if (error) results.push({ ...result, is_error: true, content: error });
-        else if (APP_TOOL_NAMES.has(block.name)) {
-          send({ type: "action", name: block.name, input: block.input });
-          results.push({ ...result, content: "ok" });
-        } else {
-          send({ type: "status", text: STATUS[block.name] || "Trabalhando" });
-          try {
-            const out = await runTool(block.name, block.input, { tz, requestId, send });
-            results.push({ ...result, content: typeof out === "string" || Array.isArray(out) ? out : JSON.stringify(out ?? "ok") });
-          } catch (err) {
-            results.push({ ...result, is_error: true, content: String(err.message || err).slice(0, 1000) });
-          }
-        }
-      }
-      history.push({ role: "user", content: results });
-    }
+    await (session.ai === "claude" ? runClaude : runLocal)(session, text.trim(), context, ctx);
     send({ type: "done" });
   } catch (err) {
-    console.error(err);
-    history.length = checkpoint;
-    let message = process.env.ANTHROPIC_API_KEY ? "Erro ao falar com a IA." : "Falta a chave da API do Claude. Coloque em Configurações.";
-    if (err instanceof Anthropic.AuthenticationError) message = "Chave da API inválida ou ausente.";
+    session.history.length = Math.min(checkpoint, session.history.length);
+    let message = "Erro ao falar com a IA.";
+    if (err instanceof localAI.LocalError) message = err.message;
+    else if (session.ai !== "claude") message = "A IA local falhou: " + String(err.message || err).slice(0, 200);
+    else if (!process.env.ANTHROPIC_API_KEY) message = "Falta a chave da API do Claude. Coloque em Configurações.";
+    else if (err instanceof Anthropic.AuthenticationError) message = "Chave da API inválida ou ausente.";
     else if (err instanceof Anthropic.RateLimitError) message = "Muitos pedidos seguidos. Um instante, por favor.";
     else if (err instanceof Anthropic.APIConnectionError) message = "Sem conexão com a API do Claude.";
     else if (err instanceof Anthropic.APIError) message = `Erro da API (${err.status}).`;
+    if (!(err instanceof localAI.LocalError) && !aborted) console.error(err);
     send({ type: "error", message });
   } finally {
     session.busy = false;
@@ -276,6 +329,7 @@ const settings = async () => {
     name: cfg.name, title: cfg.title, voice: cfg.voice, extraDirs: cfg.extraDirs,
     dirs: allowedDirs(), knownDirs: knownDirs(), tts: tts.status(), instagram: await instagram.status(),
     hasKey: Boolean(process.env.ANTHROPIC_API_KEY), model: MODEL,
+    ai: { provider: provider(), localModel: cfg.ai.localModel, local: await localAI.status() },
   };
 };
 app.get("/api/settings", localOnly, async (_req, res) => res.json(await settings()));
@@ -293,8 +347,14 @@ app.post("/api/settings", localOnly, async (req, res) => {
   if (Array.isArray(b.extraDirs)) {
     patch.extraDirs = b.extraDirs.filter((d) => typeof d === "string" && path.isAbsolute(d) && fs.existsSync(d)).slice(0, 20);
   }
+  if (b.ai && typeof b.ai === "object") {
+    patch.ai = {};
+    if (["local", "claude"].includes(b.ai.provider)) patch.ai.provider = b.ai.provider;
+    if (typeof b.ai.localModel === "string" && /^[\w.:\/-]{2,80}$/.test(b.ai.localModel.trim())) patch.ai.localModel = b.ai.localModel.trim();
+  }
   saveConfig(patch);
   if (patch.voice) tts.setup().catch(() => {});
+  if (patch.ai && provider() === "local") await localAI.ensure().catch(() => {});
   res.json(await settings());
 });
 
@@ -350,7 +410,8 @@ export function startServer(port = PORT, host = process.env.HOST || "127.0.0.1")
     const server = app.listen(port, host, () => {
       const used = server.address().port;
       console.log(`Argos rodando em http://localhost:${used}`);
-      if (!process.env.ANTHROPIC_API_KEY) console.warn("ANTHROPIC_API_KEY não definida: crie um arquivo .env (veja .env.example).");
+      if (provider() === "local") localAI.ensure().catch(() => {});
+      else if (!process.env.ANTHROPIC_API_KEY) console.warn("ANTHROPIC_API_KEY não definida: crie um arquivo .env (veja .env.example).");
       instagram.startScheduler(notify);
       if (tts.status().supported && !tts.status().ready) tts.setup().catch((err) => console.warn("voz:", err.message));
       resolve(used);

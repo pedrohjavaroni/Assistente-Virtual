@@ -20,6 +20,8 @@ const DEFAULTS = {
   voice: { pt: "pt_BR-faber-medium", en: "en_GB-alan-medium", speed: 1.0, effect: true },
   extraDirs: [],           // pastas liberadas além das padrão
   instagram: { token: "" },
+  // "local" = modelo grátis rodando neste computador pelo Ollama; "claude" = API paga da Anthropic
+  ai: { provider: "local", localModel: "qwen3-vl:8b", ollamaUrl: "http://127.0.0.1:11434" },
 };
 
 let cache = null;
@@ -30,6 +32,7 @@ export function getConfig() {
       ...DEFAULTS, ...saved,
       voice: { ...DEFAULTS.voice, ...saved.voice },
       instagram: { ...DEFAULTS.instagram, ...saved.instagram },
+      ai: { ...DEFAULTS.ai, ...saved.ai },
     };
   }
   return cache;
@@ -40,6 +43,7 @@ export function saveConfig(patch) {
     ...cur, ...patch,
     voice: { ...cur.voice, ...patch.voice },
     instagram: { ...cur.instagram, ...patch.instagram },
+    ai: { ...cur.ai, ...patch.ai },
   };
   writeJson("argos.json", cache);
   return cache;

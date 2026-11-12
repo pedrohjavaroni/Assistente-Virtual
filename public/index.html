@@ -53,9 +53,20 @@
   <aside id="settingsDrawer" class="drawer" hidden>
     <header><h2>Configurações</h2><button class="icon close" data-close title="Fechar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
     <div class="scroll">
+<h3>Inteligência</h3>
+      <label class="field">Cérebro do assistente
+        <select id="aiProvider">
+          <option value="local">IA local grátis (roda neste computador)</option>
+          <option value="claude">Claude (pago por uso, melhor qualidade)</option>
+        </select>
+      </label>
+      <p class="muted" id="aiMsg"></p>
+      <section id="localSection">
+        <label class="field">Modelo local<input id="localModel" maxlength="80" /></label>
+        <p class="muted">Sugestões para placa de 8 GB: <code>qwen3-vl:8b</code> (melhor) ou <code>qwen3-vl:4b</code> (mais leve e rápido).</p>
+      </section>
       <section id="keySection" hidden>
-        <h3>Chave da API do Claude</h3>
-        <p class="muted" id="keyMsg">É o que liga o Argos à IA. Crie em console.anthropic.com; ela fica salva só neste computador.</p>
+        <p class="muted" id="keyMsg"></p>
         <form id="keyForm" class="row"><input id="keyInput" type="password" placeholder="sk-ant-..." /><button class="btn">Salvar</button></form>
       </section>
 
