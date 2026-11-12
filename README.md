@@ -2,7 +2,7 @@
 
 <img src="docs/argos.png" alt="Janela do Argos" width="270" align="right" />
 
-**A.R.G.O.S.** — Assistente de Redes sociais, Gestão, Organização e Sistemas.
+**A.R.G.O.S.** — Agente de Redes sociais, Gestão, Otimização e Suporte.
 
 Assistente pessoal de IA (Claude) que **mora no seu computador**: liga junto com o PC, ouve quando você diz
 **"Argos"**, responde com **voz neural local** e age de verdade na máquina.
