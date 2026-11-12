@@ -1,16 +1,22 @@
-// Raccoon IA — app desktop (Windows, macOS, Linux)
-// Roda o servidor localmente, abre o app numa janela e coloca o guaxinim
-// numa janela transparente, sempre por cima, andando pela parte de baixo da tela.
-const { app, BrowserWindow, screen, ipcMain, Tray, Menu, nativeImage, session, shell } = require("electron");
+// Jarvis — app desktop (Windows, macOS, Linux)
+// Roda o servidor localmente, inicia junto com o computador, fica na bandeja do sistema,
+// mostra o orbe flutuante por cima das outras janelas e dá ao servidor acesso à tela.
+const { app, BrowserWindow, screen, ipcMain, Tray, Menu, nativeImage, session, shell, dialog, desktopCapturer, globalShortcut } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const { pathToFileURL } = require("node:url");
 
 const ROOT = path.join(__dirname, "..");
-const PREFERRED_PORT = 37615; // porta fixa = os dados (localStorage) continuam entre execuções
+const PREFERRED_PORT = 37615; // porta fixa = os dados da interface (localStorage) continuam entre execuções
+const HOTKEY = "CommandOrControl+Shift+J";
+// aberto pelo sistema no login: começa escondido, só com o orbe
+const startHidden = process.argv.includes("--hidden") || app.getLoginItemSettings().wasOpenedAtLogin;
 
-let mainWin = null, buddy = null, tray = null, port = null, quitting = false;
-let config = { apiKey: "", companion: true, walk: true };
+let mainWin = null, orbWin = null, tray = null, port = null, quitting = false;
+let config = { apiKey: "", orb: true, autostartAsked: false };
+
+// deixa o Jarvis falar sozinho ao iniciar, sem precisar de um clique antes
+app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 
 const cfgFile = () => path.join(app.getPath("userData"), "config.json");
 function loadConfig() {
@@ -21,26 +27,68 @@ function saveConfig() {
   try { fs.mkdirSync(path.dirname(cfgFile()), { recursive: true }); fs.writeFileSync(cfgFile(), JSON.stringify(config, null, 2)); } catch {}
 }
 
+// ---------- iniciar com o computador ----------
+const canAutostart = () => app.isPackaged && process.platform !== "linux";
+const autostartOn = () => canAutostart() && app.getLoginItemSettings({ args: ["--hidden"] }).openAtLogin;
+function setAutostart(on) {
+  if (!canAutostart()) return false;
+  app.setLoginItemSettings({ openAtLogin: on, openAsHidden: true, args: ["--hidden"] });
+  refreshTray();
+  return on;
+}
+
 if (!app.requestSingleInstanceLock()) app.quit();
 app.on("second-instance", () => showMain());
+
+// ---------- ponte usada pelas ferramentas do servidor ----------
+async function captureScreen({ maxSize, format = "png" } = {}) {
+  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const scale = display.scaleFactor || 1;
+  const size = { width: Math.round(display.size.width * scale), height: Math.round(display.size.height * scale) };
+  const sources = await desktopCapturer.getSources({ types: ["screen"], thumbnailSize: size });
+  const source = sources.find((s) => s.display_id === String(display.id)) || sources[0];
+  if (!source || source.thumbnail.isEmpty()) throw new Error("Não consegui capturar a tela (no macOS, libere Gravação de Tela para o Jarvis nos Ajustes do Sistema).");
+  let img = source.thumbnail;
+  const { width, height } = img.getSize();
+  if (maxSize && Math.max(width, height) > maxSize) {
+    const k = maxSize / Math.max(width, height);
+    img = img.resize({ width: Math.round(width * k), height: Math.round(height * k), quality: "best" });
+  }
+  return format === "jpeg" ? img.toJPEG(82) : img.toPNG();
+}
+const bridge = {
+  captureScreen,
+  openExternal: (url) => shell.openExternal(url),
+  openPath: (p) => shell.openPath(p),
+  showItemInFolder: (p) => shell.showItemInFolder(p),
+};
 
 async function boot() {
   const envFile = path.join(ROOT, ".env");
   if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
   loadConfig();
-  process.env.RACCOON_DATA_DIR = app.getPath("userData"); // token do Google Agenda fica aqui
-  const { startServer } = await import(pathToFileURL(path.join(ROOT, "server", "index.js")).href);
-  try { port = await startServer(PREFERRED_PORT, "127.0.0.1"); }
-  catch { port = await startServer(0, "127.0.0.1"); }
+  process.env.JARVIS_DATA_DIR = app.getPath("userData"); // configurações, memória, voz e tokens ficam aqui
+  const dirs = {};
+  for (const k of ["desktop", "documents", "downloads", "pictures", "videos", "music"]) { try { dirs[k] = app.getPath(k); } catch {} }
+  process.env.JARVIS_HOME_DIRS = JSON.stringify(dirs);
+
+  const server = await import(pathToFileURL(path.join(ROOT, "server", "index.js")).href);
+  server.setDesktopBridge(bridge);
+  try { port = await server.startServer(PREFERRED_PORT, "127.0.0.1"); }
+  catch { port = await server.startServer(0, "127.0.0.1"); }
 
   // microfone liberado só para o próprio app
   session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => {
-    cb(["media", "notifications"].includes(permission) && wc.getURL().startsWith(`http://127.0.0.1:${port}`));
+    cb(["media", "notifications", "clipboard-sanitized-write"].includes(permission) && wc.getURL().startsWith(`http://127.0.0.1:${port}`));
   });
+
+  // na primeira vez que roda instalado, já se registra para iniciar com o computador
+  if (canAutostart() && !config.autostartAsked) { config.autostartAsked = true; saveConfig(); setAutostart(true); }
 
   createMain();
   createTray();
-  if (config.companion) createBuddy();
+  if (config.orb) createOrb();
+  globalShortcut.register(HOTKEY, () => mainWin?.webContents.send("hotkey"));
 }
 
 const url = (page = "") => `http://127.0.0.1:${port}/${page}`;
@@ -49,121 +97,91 @@ const preload = path.join(__dirname, "preload.cjs");
 
 function createMain() {
   mainWin = new BrowserWindow({
-    width: 440, height: 800, minWidth: 360, minHeight: 560,
-    title: "Raccoon IA", icon: icon(), backgroundColor: "#0d0e17", autoHideMenuBar: true,
-    webPreferences: { preload },
+    width: 460, height: 800, minWidth: 360, minHeight: 560, show: !startHidden,
+    title: "Jarvis", icon: icon(), backgroundColor: "#060a12", autoHideMenuBar: true,
+    // a janela escondida continua ouvindo a palavra de ativação e disparando lembretes
+    webPreferences: { preload, backgroundThrottling: false },
   });
   mainWin.loadURL(url());
-  // fechar a janela só esconde: o guaxinim continua na tela e os lembretes funcionando
   mainWin.on("close", (e) => { if (!quitting) { e.preventDefault(); mainWin.hide(); } });
   mainWin.webContents.setWindowOpenHandler(({ url: u }) => { shell.openExternal(u); return { action: "deny" }; });
 }
-
 function showMain() {
   if (!mainWin) return;
   mainWin.show();
   mainWin.focus();
 }
 
-// ---------- o guaxinim na tela ----------
-const W = 240, H = 330;
-let walk = { walking: false, dir: -1, until: 0 }, dragging = null, hovered = false, talkingBubble = false;
-
-function createBuddy() {
-  if (buddy) return;
+// ---------- orbe flutuante ----------
+const W = 260, H = 300;
+let dragging = null;
+function createOrb() {
+  if (orbWin) return;
   const area = screen.getPrimaryDisplay().workArea;
-  buddy = new BrowserWindow({
-    width: W, height: H, x: area.x + area.width - W - 40, y: area.y + area.height - H,
+  orbWin = new BrowserWindow({
+    width: W, height: H, x: area.x + area.width - W - 12, y: area.y + area.height - H,
     transparent: true, frame: false, resizable: false, hasShadow: false, skipTaskbar: true,
     alwaysOnTop: true, fullscreenable: false, maximizable: false, minimizable: false,
-    backgroundColor: "#00000000", webPreferences: { preload },
+    backgroundColor: "#00000000", webPreferences: { preload, backgroundThrottling: false },
   });
-  buddy.setAlwaysOnTop(true, "screen-saver");
-  buddy.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  buddy.setIgnoreMouseEvents(true, { forward: true });
-  buddy.loadURL(url("companion.html"));
-  buddy.on("closed", () => { buddy = null; });
+  orbWin.setAlwaysOnTop(true, "screen-saver");
+  orbWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  orbWin.setIgnoreMouseEvents(true, { forward: true });
+  orbWin.loadURL(url("companion.html"));
+  orbWin.on("closed", () => { orbWin = null; });
 }
-
-function destroyBuddy() { buddy?.destroy(); buddy = null; }
-
-function setCompanion(on) {
-  config.companion = on; saveConfig();
-  on ? createBuddy() : destroyBuddy();
+function setOrb(on) {
+  config.orb = on; saveConfig();
+  if (on) createOrb(); else { orbWin?.destroy(); orbWin = null; }
   refreshTray();
   return on;
 }
 
-// passeio: alterna entre ficar parado e andar de um lado para o outro
-setInterval(() => {
-  if (!buddy || dragging) return;
-  const now = Date.now();
-  const paused = hovered || talkingBubble || !config.walk;
-  if (now > walk.until) {
-    walk.walking = !walk.walking && !paused && Math.random() < 0.7;
-    if (walk.walking && Math.random() < 0.5) walk.dir *= -1;
-    walk.until = now + (walk.walking ? 2500 + Math.random() * 5000 : 4000 + Math.random() * 9000);
-    send("walk", walk);
-  }
-  if (paused && walk.walking) { walk.walking = false; walk.until = now + 3000; send("walk", walk); }
-  if (!walk.walking) return;
-  const b = buddy.getBounds();
-  const d = screen.getDisplayMatching(b).workArea;
-  let x = b.x + walk.dir * 2;
-  if (x < d.x - 30 || x + W > d.x + d.width + 30) { walk.dir *= -1; x = b.x + walk.dir * 2; send("walk", walk); }
-  buddy.setPosition(Math.round(x), b.y);
-}, 33);
-
-function send(ch, data) { buddy?.webContents.send(ch, data); }
-
-ipcMain.on("buddy:ignore", (_e, ignore) => {
-  hovered = !ignore;
-  buddy?.setIgnoreMouseEvents(ignore, { forward: true });
-});
-ipcMain.on("buddy:bubble", (_e, on) => { talkingBubble = on; });
-ipcMain.on("buddy:focus", () => { buddy?.focus(); });
-ipcMain.on("buddy:drag-start", () => {
-  if (!buddy) return;
-  const c = screen.getCursorScreenPoint(), b = buddy.getBounds();
+ipcMain.on("orb:ignore", (_e, ignore) => orbWin?.setIgnoreMouseEvents(ignore, { forward: true }));
+ipcMain.on("orb:bubble", () => {});
+ipcMain.on("orb:focus", () => orbWin?.focus());
+ipcMain.on("orb:drag-start", () => {
+  if (!orbWin || dragging) return;
+  const c = screen.getCursorScreenPoint(), b = orbWin.getBounds();
   dragging = { dx: c.x - b.x, dy: c.y - b.y, timer: setInterval(() => {
     const p = screen.getCursorScreenPoint();
-    buddy?.setPosition(p.x - dragging.dx, p.y - dragging.dy);
+    orbWin?.setBounds({ x: p.x - dragging.dx, y: p.y - dragging.dy, width: W, height: H });
   }, 16) };
-  walk.walking = false; send("walk", walk);
 });
-ipcMain.on("buddy:drag-end", () => {
-  if (!dragging) return;
-  clearInterval(dragging.timer); dragging = null;
-  // perto do chão? encaixa em cima da barra de tarefas
-  const b = buddy.getBounds(), d = screen.getDisplayMatching(b).workArea;
-  if (d.y + d.height - (b.y + H) < 120) buddy.setPosition(b.x, d.y + d.height - H);
-  walk.until = Date.now() + 5000;
-});
-ipcMain.on("buddy:open-app", () => showMain());
-ipcMain.on("buddy:menu", () => buildMenu().popup({ window: buddy }));
-ipcMain.handle("app:toggle-companion", () => setCompanion(!buddy));
+ipcMain.on("orb:drag-end", () => { if (dragging) { clearInterval(dragging.timer); dragging = null; } });
+ipcMain.on("orb:menu", () => buildMenu().popup({ window: orbWin }));
+ipcMain.on("app:show", () => showMain());
+ipcMain.handle("app:set-orb", (_e, on) => setOrb(Boolean(on)));
+ipcMain.handle("app:set-autostart", (_e, on) => setAutostart(Boolean(on)));
 ipcMain.handle("app:set-api-key", (_e, key) => {
   config.apiKey = String(key || "").trim(); saveConfig();
   process.env.ANTHROPIC_API_KEY = config.apiKey;
   return true;
 });
-ipcMain.handle("app:info", () => ({ hasKey: Boolean(process.env.ANTHROPIC_API_KEY), companion: Boolean(buddy) }));
+ipcMain.handle("app:pick-folder", async () => {
+  const r = await dialog.showOpenDialog(mainWin, { properties: ["openDirectory"], title: "Liberar uma pasta para o Jarvis" });
+  return r.canceled ? "" : r.filePaths[0];
+});
+ipcMain.handle("app:info", () => ({
+  hasKey: Boolean(process.env.ANTHROPIC_API_KEY), orb: Boolean(orbWin),
+  autostart: autostartOn(), canAutostart: canAutostart(), hotkey: HOTKEY,
+}));
 
 // ---------- bandeja do sistema ----------
 function buildMenu() {
   return Menu.buildFromTemplate([
-    { label: "Abrir Raccoon IA", click: showMain },
-    { label: "Guaxinim na tela", type: "checkbox", checked: Boolean(buddy), click: (i) => setCompanion(i.checked) },
-    { label: "Andar pela tela", type: "checkbox", checked: config.walk, click: (i) => { config.walk = i.checked; saveConfig(); } },
-    { label: "Iniciar com o computador", type: "checkbox", checked: app.getLoginItemSettings().openAtLogin,
-      click: (i) => app.setLoginItemSettings({ openAtLogin: i.checked }) },
+    { label: "Abrir o Jarvis", click: showMain },
+    { label: "Falar (Ctrl+Shift+J)", click: () => mainWin?.webContents.send("hotkey") },
+    { type: "separator" },
+    { label: "Orbe flutuante", type: "checkbox", checked: Boolean(orbWin), click: (i) => setOrb(i.checked) },
+    { label: "Iniciar com o computador", type: "checkbox", checked: autostartOn(), enabled: canAutostart(), click: (i) => setAutostart(i.checked) },
     { type: "separator" },
     { label: "Sair", click: () => { quitting = true; app.quit(); } },
   ]);
 }
 function createTray() {
   tray = new Tray(icon().resize({ width: 18, height: 18 }));
-  tray.setToolTip("Raccoon IA");
+  tray.setToolTip("Jarvis");
   tray.on("click", showMain);
   refreshTray();
 }
@@ -171,5 +189,6 @@ function refreshTray() { tray?.setContextMenu(buildMenu()); }
 
 app.whenReady().then(boot);
 app.on("before-quit", () => { quitting = true; });
+app.on("will-quit", () => globalShortcut.unregisterAll());
 app.on("window-all-closed", () => { /* continua na bandeja */ });
 app.on("activate", showMain);

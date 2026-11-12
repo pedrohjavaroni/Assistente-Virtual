@@ -1,0 +1,29 @@
+/* Orbe do Jarvis (usado na janela principal e no orbe flutuante) */
+.orb { --orb: #4fd8ff; position: relative; aspect-ratio: 1; }
+.orb svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.orb path { fill: none; stroke: var(--orb); stroke-linecap: round; }
+.orb-ticks { stroke-width: 1; opacity: .35; }
+.orb-ring { transform-origin: 100px 100px; animation: orb-spin 24s linear infinite; }
+.orb-ring path { stroke-width: 2.5; opacity: .85; }
+.orb-ring.r2 { animation-duration: 16s; animation-direction: reverse; }
+.orb-ring.r2 path { stroke-width: 1.5; opacity: .6; }
+.orb-ring.r3 { animation-duration: 9s; }
+.orb-ring.r3 path { stroke-width: 4; opacity: .5; }
+.orb-halo { fill: none; stroke: var(--orb); stroke-width: 1; opacity: .5; }
+.orb-core { transform-origin: 100px 100px; animation: orb-breathe 4s ease-in-out infinite; filter: drop-shadow(0 0 14px var(--orb)); }
+
+.orb.is-listening { --orb: #ffb347; }
+.orb.is-listening .orb-core { animation: orb-pulse .9s ease-in-out infinite; }
+.orb.is-listening .orb-ring { animation-duration: 6s; }
+.orb.is-thinking .orb-ring { animation-duration: 2.2s; }
+.orb.is-thinking .orb-ring.r2 { animation-duration: 1.6s; }
+.orb.is-thinking .orb-core { animation: orb-breathe 1.2s ease-in-out infinite; }
+.orb.is-talking .orb-core { animation: orb-talk .34s ease-in-out infinite alternate; }
+.orb.is-talking .orb-halo { animation: orb-wave 1s ease-out infinite; transform-origin: 100px 100px; }
+
+@keyframes orb-spin { to { transform: rotate(360deg); } }
+@keyframes orb-breathe { 0%, 100% { transform: scale(.92); opacity: .85; } 50% { transform: scale(1); opacity: 1; } }
+@keyframes orb-pulse { 0%, 100% { transform: scale(.85); } 50% { transform: scale(1.12); } }
+@keyframes orb-talk { from { transform: scale(.88); } to { transform: scale(1.14); } }
+@keyframes orb-wave { from { transform: scale(1); opacity: .7; } to { transform: scale(1.9); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .orb-ring, .orb-core, .orb-halo { animation: none !important; } }

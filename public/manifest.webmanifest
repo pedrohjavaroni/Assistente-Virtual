@@ -1,17 +1,15 @@
 {
-  "name": "Raccoon IA",
-  "short_name": "Raccoon IA",
-  "description": "Seu guaxinim virtual com inteligência artificial",
+  "name": "Jarvis",
+  "short_name": "Jarvis",
+  "description": "Assistente pessoal de IA no computador",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#0d0e17",
-  "theme_color": "#0d0e17",
+  "background_color": "#060a12",
+  "theme_color": "#060a12",
   "lang": "pt-BR",
   "icons": [
     { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
   ]
 }
