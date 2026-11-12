@@ -1,4 +1,4 @@
-// Ferramentas que o Jarvis pode usar.
+// Ferramentas que o Argos pode usar.
 //  - APP_TOOLS: o servidor valida e repassa a ação para a interface (tarefas, lembretes, cartões).
 //  - As demais rodam aqui no servidor (no seu computador): PC, vídeo, memória, agenda, Instagram.
 const obj = (properties, required = []) => ({ type: "object", properties, required, additionalProperties: false });
@@ -23,7 +23,7 @@ export const APP_TOOLS = finish([
   },
   {
     name: "show_card",
-    description: "Mostra um texto longo na janela do Jarvis, num cartão que o usuário pode ler e copiar: roteiros de Reels, legendas, listas de ideias, hashtags, calendários de conteúdo, resumos. Use sempre que a resposta for longa demais para ser falada; depois diga em uma frase curta que o conteúdo está na tela. Pode usar markdown simples (títulos com #, listas com -).",
+    description: "Mostra um texto longo na janela do Argos, num cartão que o usuário pode ler e copiar: roteiros de Reels, legendas, listas de ideias, hashtags, calendários de conteúdo, resumos. Use sempre que a resposta for longa demais para ser falada; depois diga em uma frase curta que o conteúdo está na tela. Pode usar markdown simples (títulos com #, listas com -).",
     input_schema: obj({ title: str("Título do cartão"), content: str("Conteúdo completo") }, ["title", "content"]),
   },
 ]);
@@ -31,7 +31,7 @@ export const APP_TOOLS = finish([
 export const MEMORY_TOOLS = finish([
   {
     name: "remember",
-    description: "Guarda um fato na memória permanente do Jarvis (ele volta em todas as conversas futuras). Use quando o usuário pedir para lembrar de algo sobre ele, ou quando contar algo duradouro e útil: nicho, tom e público do canal do Instagram, preferências, nomes, rotinas. Um fato curto por chamada.",
+    description: "Guarda um fato na memória permanente do Argos (ele volta em todas as conversas futuras). Use quando o usuário pedir para lembrar de algo sobre ele, ou quando contar algo duradouro e útil: nicho, tom e público do canal do Instagram, preferências, nomes, rotinas. Um fato curto por chamada.",
     input_schema: obj({ fact: str("O fato, em uma frase completa") }, ["fact"]),
   },
   {
@@ -77,7 +77,7 @@ export const PC_TOOLS = finish([
   },
   {
     name: "system_control",
-    description: "Controla o computador: volume (volume_up/volume_down mudam 10%; volume_set usa value de 0 a 100; mute alterna), mídia (play_pause, next_track, previous_track), lock (bloqueia a tela), sleep (suspende), screenshot (salva um print em Imagens/Jarvis), shutdown e restart (o sistema pede a confirmação do usuário antes), cancel_shutdown.",
+    description: "Controla o computador: volume (volume_up/volume_down mudam 10%; volume_set usa value de 0 a 100; mute alterna), mídia (play_pause, next_track, previous_track), lock (bloqueia a tela), sleep (suspende), screenshot (salva um print em Imagens/Argos), shutdown e restart (o sistema pede a confirmação do usuário antes), cancel_shutdown.",
     input_schema: obj({
       action: { type: "string", enum: ["volume_up", "volume_down", "volume_set", "mute", "play_pause", "next_track", "previous_track", "lock", "sleep", "screenshot", "shutdown", "restart", "cancel_shutdown"] },
       value: { type: "number", description: "Só para volume_set: 0 a 100" },
@@ -109,7 +109,7 @@ export const PC_TOOLS = finish([
   },
   {
     name: "write_file",
-    description: "Cria um arquivo de texto novo (.txt, .md, .csv, .srt, .json, .html) ou uma pasta nova dentro das pastas liberadas. Nunca sobrescreve nem apaga nada. Só um nome solto (ex: 'ideias-reels.md') vai para Documentos/Jarvis.",
+    description: "Cria um arquivo de texto novo (.txt, .md, .csv, .srt, .json, .html) ou uma pasta nova dentro das pastas liberadas. Nunca sobrescreve nem apaga nada. Só um nome solto (ex: 'ideias-reels.md') vai para Documentos/Argos.",
     input_schema: obj({
       path: str("Nome ou caminho do arquivo/pasta"), content: str("Conteúdo do arquivo (vazio para pasta)"),
       folder: { type: "boolean", description: "true para criar uma pasta em vez de arquivo" },

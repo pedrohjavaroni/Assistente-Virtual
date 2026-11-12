@@ -1,6 +1,6 @@
 {
-  "name": "Jarvis",
-  "short_name": "Jarvis",
+  "name": "Argos",
+  "short_name": "Argos",
   "description": "Assistente pessoal de IA no computador",
   "start_url": "./",
   "scope": "./",

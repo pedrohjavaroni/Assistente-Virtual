@@ -1,4 +1,4 @@
-// O "rosto" do Jarvis: um núcleo luminoso com anéis que reagem ao estado
+// O "rosto" do Argos: um núcleo luminoso com anéis que reagem ao estado
 // (idle = aguardando, listening = ouvindo, thinking = pensando, talking = falando).
 const arc = (r, from, to) => {
   const p = (deg) => [100 + r * Math.cos((deg * Math.PI) / 180), 100 + r * Math.sin((deg * Math.PI) / 180)];

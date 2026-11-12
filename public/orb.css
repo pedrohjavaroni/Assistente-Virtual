@@ -1,4 +1,4 @@
-/* Orbe do Jarvis (usado na janela principal e no orbe flutuante) */
+/* Orbe do Argos (usado na janela principal e no orbe flutuante) */
 .orb { --orb: #4fd8ff; position: relative; aspect-ratio: 1; }
 .orb svg { width: 100%; height: 100%; display: block; overflow: visible; }
 .orb path { fill: none; stroke: var(--orb); stroke-linecap: round; }

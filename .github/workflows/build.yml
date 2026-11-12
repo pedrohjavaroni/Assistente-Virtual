@@ -1,4 +1,4 @@
-# Gera os instaladores do Jarvis: Windows (.exe) e macOS (.dmg).
+# Gera os instaladores do Argos: Windows (.exe) e macOS (.dmg).
 # Rode manualmente em Actions → "Build apps" → Run workflow, ou crie uma tag v*.
 name: Build apps
 
@@ -26,7 +26,7 @@ jobs:
         env: { CSC_IDENTITY_AUTO_DISCOVERY: "false" }
       - uses: actions/upload-artifact@v4
         with:
-          name: jarvis-${{ matrix.os }}
+          name: argos-${{ matrix.os }}
           path: |
             dist/*.exe
             dist/*.zip

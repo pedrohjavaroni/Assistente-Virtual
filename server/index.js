@@ -1,4 +1,4 @@
-// Jarvis — servidor local
+// Argos — servidor local
 // Serve a interface e faz a ponte com a API do Claude (respostas transmitidas por Server-Sent Events).
 // As ferramentas (controle do PC, vídeo, Instagram, agenda) rodam aqui, no seu computador.
 // A chave da API fica só aqui, nunca na interface.
@@ -23,7 +23,7 @@ const envFile = path.join(here, "..", ".env");
 if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
 
 const PORT = Number(process.env.PORT) || 3000;
-const MODEL = process.env.JARVIS_MODEL || "claude-opus-5-5";
+const MODEL = process.env.ARGOS_MODEL || "claude-opus-5-5";
 const MAX_ROUNDS = 12;
 
 // Cliente criado sob demanda: no app desktop a chave pode ser definida depois de iniciar
@@ -52,7 +52,7 @@ function isLocal(req) {
   const origin = req.headers.origin;
   return !origin || LOCAL_HOSTS.has(hostOf(origin));
 }
-const localOnly = (req, res, next) => (isLocal(req) ? next() : res.status(403).json({ error: "Faça isso no computador onde o Jarvis está rodando." }));
+const localOnly = (req, res, next) => (isLocal(req) ? next() : res.status(403).json({ error: "Faça isso no computador onde o Argos está rodando." }));
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, model: MODEL, hasKey: Boolean(process.env.ANTHROPIC_API_KEY), name: getConfig().name });
@@ -322,14 +322,14 @@ app.get("/auth/google", localOnly, (req, res) => {
   res.redirect(google.authUrl(`http://127.0.0.1:${req.socket.localPort}/auth/google/callback`));
 });
 app.get("/auth/google/callback", localOnly, async (req, res) => {
-  const page = (title, msg) => `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Jarvis</title>
+  const page = (title, msg) => `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Argos</title>
     <body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#060a12;color:#dbe7f5;font:16px system-ui;text-align:center">
     <div><h2 style="color:#4fd8ff">${title}</h2><p>${msg}</p></div></body>`;
   const esc = (v) => String(v).replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" })[c]);
   if (req.query.error) return res.send(page("Não conectado", "Você cancelou ou o Google recusou: " + esc(req.query.error)));
   try {
     await google.finishAuth(String(req.query.code || ""), String(req.query.state || ""));
-    res.send(page("Google Agenda conectada", "Pode fechar esta aba e voltar para o Jarvis."));
+    res.send(page("Google Agenda conectada", "Pode fechar esta aba e voltar para o Argos."));
   } catch (err) {
     res.status(400).send(page("Não deu certo", esc(err.message)));
   }
@@ -349,7 +349,7 @@ export function startServer(port = PORT, host = process.env.HOST || "127.0.0.1")
   return new Promise((resolve, reject) => {
     const server = app.listen(port, host, () => {
       const used = server.address().port;
-      console.log(`Jarvis rodando em http://localhost:${used}`);
+      console.log(`Argos rodando em http://localhost:${used}`);
       if (!process.env.ANTHROPIC_API_KEY) console.warn("ANTHROPIC_API_KEY não definida: crie um arquivo .env (veja .env.example).");
       instagram.startScheduler(notify);
       if (tts.status().supported && !tts.status().ready) tts.setup().catch((err) => console.warn("voz:", err.message));

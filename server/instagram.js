@@ -22,7 +22,7 @@ async function api(pathname, { method = "GET", params = {} } = {}) {
   if (!res.ok || json.error) {
     const e = json.error || {};
     const expired = e.code === 190;
-    throw new Error(expired ? "O token do Instagram expirou ou é inválido. Gere outro no painel da Meta e cole nas configurações do Jarvis."
+    throw new Error(expired ? "O token do Instagram expirou ou é inválido. Gere outro no painel da Meta e cole nas configurações do Argos."
       : `Instagram recusou (${e.code ?? res.status}): ${e.error_user_msg || e.message || "erro desconhecido"}`);
   }
   return json;

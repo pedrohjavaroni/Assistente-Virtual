@@ -167,15 +167,15 @@ export async function systemControl({ action, value }) {
 // ---------- tela ----------
 /** Captura a tela para a IA olhar. Retorna { data: base64 JPEG } */
 export async function captureForVision() {
-  if (!bridge.captureScreen) throw new Error("Ver a tela só funciona no app desktop do Jarvis.");
+  if (!bridge.captureScreen) throw new Error("Ver a tela só funciona no app desktop do Argos.");
   const jpeg = await bridge.captureScreen({ maxSize: 1568, format: "jpeg" });
   return { media_type: "image/jpeg", data: jpeg.toString("base64") };
 }
 async function saveScreenshot() {
-  if (!bridge.captureScreen) throw new Error("Captura de tela só funciona no app desktop do Jarvis.");
+  if (!bridge.captureScreen) throw new Error("Captura de tela só funciona no app desktop do Argos.");
   const png = await bridge.captureScreen({ format: "png" });
   const dirs = knownDirs();
-  const dir = path.join(dirs.pictures || dirs.documents || allowedDirs()[0], "Jarvis");
+  const dir = path.join(dirs.pictures || dirs.documents || allowedDirs()[0], "Argos");
   await fsp.mkdir(dir, { recursive: true });
   const stamp = new Date().toISOString().slice(0, 19).replace("T", "_").replaceAll(":", "-");
   const file = path.join(dir, `captura-${stamp}.png`);
@@ -215,7 +215,7 @@ export function resolveSafe(input, { mustExist = true } = {}) {
   try { real = path.join(fs.realpathSync(real), ...tail); } catch { real = p; }
   const roots = allowedDirs().map((r) => { try { return fs.realpathSync(r); } catch { return r; } });
   if (!roots.some((r) => inside(same(real), same(r)))) {
-    throw new Error(`"${p}" fica fora das pastas liberadas (${allowedDirs().join("; ")}). O usuário pode liberar outras pastas nas configurações do Jarvis.`);
+    throw new Error(`"${p}" fica fora das pastas liberadas (${allowedDirs().join("; ")}). O usuário pode liberar outras pastas nas configurações do Argos.`);
   }
   if (mustExist && !fs.existsSync(real)) throw new Error(`Não existe: ${p}`);
   return real;
@@ -282,8 +282,8 @@ export async function readFile({ path: p }) {
 const TEXT_EXT = new Set([".txt", ".md", ".csv", ".srt", ".json", ".html"]);
 export async function writeFile({ path: p, content = "", folder = false }) {
   let target = String(p || "").trim();
-  // só um nome solto vai para Documentos/Jarvis
-  if (!/[\\/]/.test(target)) target = path.join(knownDirs().documents || allowedDirs()[0], "Jarvis", target);
+  // só um nome solto vai para Documentos/Argos
+  if (!/[\\/]/.test(target)) target = path.join(knownDirs().documents || allowedDirs()[0], "Argos", target);
   const file = resolveSafe(target, { mustExist: false });
   if (folder) { await fsp.mkdir(file, { recursive: true }); return { created_folder: file }; }
   if (!TEXT_EXT.has(path.extname(file).toLowerCase())) throw new Error("só crio arquivos de texto: " + [...TEXT_EXT].join(" "));

@@ -1,7 +1,7 @@
 // Ponte segura entre as páginas e o app desktop
 const { contextBridge, ipcRenderer } = require("electron");
 
-contextBridge.exposeInMainWorld("jarvisDesktop", {
+contextBridge.exposeInMainWorld("argosDesktop", {
   // orbe flutuante
   setIgnoreMouse: (ignore) => ipcRenderer.send("orb:ignore", Boolean(ignore)),
   bubble: (on) => ipcRenderer.send("orb:bubble", Boolean(on)),

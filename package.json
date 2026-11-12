@@ -1,7 +1,7 @@
 {
-  "name": "jarvis-assistente",
+  "name": "argos-assistente",
   "version": "1.0.0",
-  "description": "Jarvis: assistente pessoal de IA no computador, com voz local, controle do PC, edição de vídeo e Instagram",
+  "description": "Argos: assistente pessoal de IA no computador, com voz local, controle do PC, edição de vídeo e Instagram",
   "type": "module",
   "main": "server/index.js",
   "scripts": {
@@ -26,10 +26,10 @@
     "electron": "^45.2.2",
     "electron-builder": "^26.18.0"
   },
-  "author": "Jarvis",
+  "author": "Argos",
   "build": {
-    "appId": "com.jarvis.assistente",
-    "productName": "Jarvis",
+    "appId": "com.argos.assistente",
+    "productName": "Argos",
     "directories": {
       "output": "dist"
     },
@@ -64,7 +64,7 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "shortcutName": "Jarvis"
+      "shortcutName": "Argos"
     },
     "mac": {
       "target": [
@@ -73,7 +73,7 @@
       "icon": "desktop/icon.png",
       "category": "public.app-category.productivity",
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "O Jarvis usa o microfone para entender seus comandos de voz."
+        "NSMicrophoneUsageDescription": "O Argos usa o microfone para entender seus comandos de voz."
       }
     },
     "linux": {

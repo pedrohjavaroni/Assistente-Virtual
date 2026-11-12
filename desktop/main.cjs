@@ -1,4 +1,4 @@
-// Jarvis — app desktop (Windows, macOS, Linux)
+// Argos — app desktop (Windows, macOS, Linux)
 // Roda o servidor localmente, inicia junto com o computador, fica na bandeja do sistema,
 // mostra o orbe flutuante por cima das outras janelas e dá ao servidor acesso à tela.
 const { app, BrowserWindow, screen, ipcMain, Tray, Menu, nativeImage, session, shell, dialog, desktopCapturer, globalShortcut } = require("electron");
@@ -15,7 +15,7 @@ const startHidden = process.argv.includes("--hidden") || app.getLoginItemSetting
 let mainWin = null, orbWin = null, tray = null, port = null, quitting = false;
 let config = { apiKey: "", orb: true, autostartAsked: false };
 
-// deixa o Jarvis falar sozinho ao iniciar, sem precisar de um clique antes
+// deixa o Argos falar sozinho ao iniciar, sem precisar de um clique antes
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 
 const cfgFile = () => path.join(app.getPath("userData"), "config.json");
@@ -47,7 +47,7 @@ async function captureScreen({ maxSize, format = "png" } = {}) {
   const size = { width: Math.round(display.size.width * scale), height: Math.round(display.size.height * scale) };
   const sources = await desktopCapturer.getSources({ types: ["screen"], thumbnailSize: size });
   const source = sources.find((s) => s.display_id === String(display.id)) || sources[0];
-  if (!source || source.thumbnail.isEmpty()) throw new Error("Não consegui capturar a tela (no macOS, libere Gravação de Tela para o Jarvis nos Ajustes do Sistema).");
+  if (!source || source.thumbnail.isEmpty()) throw new Error("Não consegui capturar a tela (no macOS, libere Gravação de Tela para o Argos nos Ajustes do Sistema).");
   let img = source.thumbnail;
   const { width, height } = img.getSize();
   if (maxSize && Math.max(width, height) > maxSize) {
@@ -67,10 +67,10 @@ async function boot() {
   const envFile = path.join(ROOT, ".env");
   if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
   loadConfig();
-  process.env.JARVIS_DATA_DIR = app.getPath("userData"); // configurações, memória, voz e tokens ficam aqui
+  process.env.ARGOS_DATA_DIR = app.getPath("userData"); // configurações, memória, voz e tokens ficam aqui
   const dirs = {};
   for (const k of ["desktop", "documents", "downloads", "pictures", "videos", "music"]) { try { dirs[k] = app.getPath(k); } catch {} }
-  process.env.JARVIS_HOME_DIRS = JSON.stringify(dirs);
+  process.env.ARGOS_HOME_DIRS = JSON.stringify(dirs);
 
   const server = await import(pathToFileURL(path.join(ROOT, "server", "index.js")).href);
   server.setDesktopBridge(bridge);
@@ -98,7 +98,7 @@ const preload = path.join(__dirname, "preload.cjs");
 function createMain() {
   mainWin = new BrowserWindow({
     width: 460, height: 800, minWidth: 360, minHeight: 560, show: !startHidden,
-    title: "Jarvis", icon: icon(), backgroundColor: "#060a12", autoHideMenuBar: true,
+    title: "Argos", icon: icon(), backgroundColor: "#060a12", autoHideMenuBar: true,
     // a janela escondida continua ouvindo a palavra de ativação e disparando lembretes
     webPreferences: { preload, backgroundThrottling: false },
   });
@@ -159,7 +159,7 @@ ipcMain.handle("app:set-api-key", (_e, key) => {
   return true;
 });
 ipcMain.handle("app:pick-folder", async () => {
-  const r = await dialog.showOpenDialog(mainWin, { properties: ["openDirectory"], title: "Liberar uma pasta para o Jarvis" });
+  const r = await dialog.showOpenDialog(mainWin, { properties: ["openDirectory"], title: "Liberar uma pasta para o Argos" });
   return r.canceled ? "" : r.filePaths[0];
 });
 ipcMain.handle("app:info", () => ({
@@ -170,7 +170,7 @@ ipcMain.handle("app:info", () => ({
 // ---------- bandeja do sistema ----------
 function buildMenu() {
   return Menu.buildFromTemplate([
-    { label: "Abrir o Jarvis", click: showMain },
+    { label: "Abrir o Argos", click: showMain },
     { label: "Falar (Ctrl+Shift+J)", click: () => mainWin?.webContents.send("hotkey") },
     { type: "separator" },
     { label: "Orbe flutuante", type: "checkbox", checked: Boolean(orbWin), click: (i) => setOrb(i.checked) },
@@ -181,7 +181,7 @@ function buildMenu() {
 }
 function createTray() {
   tray = new Tray(icon().resize({ width: 18, height: 18 }));
-  tray.setToolTip("Jarvis");
+  tray.setToolTip("Argos");
   tray.on("click", showMain);
   refreshTray();
 }

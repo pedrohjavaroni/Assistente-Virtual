@@ -1,9 +1,9 @@
-// Configuração e memória do Jarvis. Tudo fica salvo só no seu computador (pasta de dados).
+// Configuração e memória do Argos. Tudo fica salvo só no seu computador (pasta de dados).
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-export const dataDir = () => process.env.JARVIS_DATA_DIR || path.join(process.cwd(), "data");
+export const dataDir = () => process.env.ARGOS_DATA_DIR || path.join(process.cwd(), "data");
 const file = (name) => path.join(dataDir(), name);
 
 export function readJson(name, fallback) {
@@ -15,7 +15,7 @@ export function writeJson(name, value) {
 }
 
 const DEFAULTS = {
-  name: "Jarvis",          // nome do assistente (também é a palavra de ativação)
+  name: "Argos",          // nome do assistente (também é a palavra de ativação)
   title: "senhor",         // como ele chama você
   voice: { pt: "pt_BR-faber-medium", en: "en_GB-alan-medium", speed: 1.0, effect: true },
   extraDirs: [],           // pastas liberadas além das padrão
@@ -25,7 +25,7 @@ const DEFAULTS = {
 let cache = null;
 export function getConfig() {
   if (!cache) {
-    const saved = readJson("jarvis.json", {});
+    const saved = readJson("argos.json", {});
     cache = {
       ...DEFAULTS, ...saved,
       voice: { ...DEFAULTS.voice, ...saved.voice },
@@ -41,15 +41,15 @@ export function saveConfig(patch) {
     voice: { ...cur.voice, ...patch.voice },
     instagram: { ...cur.instagram, ...patch.instagram },
   };
-  writeJson("jarvis.json", cache);
+  writeJson("argos.json", cache);
   return cache;
 }
 
-// ---------- pastas que o Jarvis pode mexer ----------
+// ---------- pastas que o Argos pode mexer ----------
 // No app desktop o Electron informa as pastas reais (mesmo quando o Windows as move para o OneDrive).
 function homeDirs() {
   try {
-    const fromApp = JSON.parse(process.env.JARVIS_HOME_DIRS || "null");
+    const fromApp = JSON.parse(process.env.ARGOS_HOME_DIRS || "null");
     if (fromApp && typeof fromApp === "object") return fromApp;
   } catch {}
   const h = os.homedir();

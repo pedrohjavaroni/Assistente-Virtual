@@ -1,7 +1,7 @@
-// Voz do Jarvis.
+// Voz do Argos.
 // Ouvir:  no app desktop, Whisper rodando localmente (offline); no navegador, Web Speech API.
 // Falar:  Piper (voz neural local, servida por /api/tts); se ainda não estiver instalada, a voz do sistema.
-// A lógica da palavra de ativação ("Jarvis, ...") e do botão do microfone fica na classe Voice.
+// A lógica da palavra de ativação ("Argos, ...") e do botão do microfone fica na classe Voice.
 
 const LOCALE = { pt: "pt-BR", en: "en-US" };
 const isElectron = /Electron/i.test(navigator.userAgent);
@@ -10,7 +10,7 @@ const isElectron = /Electron/i.test(navigator.userAgent);
 export function wakeRegex(name) {
   const tolerant = (s) => s.toLowerCase().replace(/[aeiouc]/g, (c) => ({ a: "[aáàâã]", e: "[eéê]", i: "[iíy]", o: "[oóôõ]", u: "[uú]", c: "[cç]" })[c]);
   const names = [tolerant(name.trim())];
-  if (/^jarvis$/i.test(name.trim())) names.push("d?j[aá]r[vb][iey]s", "j[aá]rv[iey][sz]", "j[aá]rbas", "ch[aá]rv[ie]s", "j[aá]v[ie]s", "g[aá]rv[ie]s", "jarvi");
+  if (/^argos$/i.test(name.trim())) names.push("h?[aá]rg[ou][sz]", "[aá]rgo", "[aá]rcos", "[aá]rgu[ei]s");
   return new RegExp(`(?:^|[\\s,.!?])(?:(?:ei|hey|oi|ol[aá]|ok|e a[ií])[\\s,]+)?(?:${names.join("|")})(?=$|[\\s,.!?])[,.!?]?\\s*`, "i");
 }
 
@@ -100,7 +100,7 @@ class WhisperEngine {
     const frameMs = (2048 / 16000) * 1000;
     proc.onaudioprocess = (e) => {
       if (!this.running || this.paused) return;
-      if (this.muted) { speaking = false; chunks = []; return; } // o Jarvis está falando: não escuta a própria voz
+      if (this.muted) { speaking = false; chunks = []; return; } // o Argos está falando: não escuta a própria voz
       const data = e.inputBuffer.getChannelData(0);
       let sum = 0;
       for (let i = 0; i < data.length; i++) sum += data[i] * data[i];
@@ -180,7 +180,7 @@ export class Voice {
     this.engineName = Engine?.name;
     this.engine = Engine ? new Engine((type, text) => this.onEngine(type, text)) : null;
     this.lang = "pt";
-    this.wake = wakeRegex("Jarvis");
+    this.wake = wakeRegex("Argos");
     this.wakeMode = false;
     this.active = false;          // botão do microfone apertado
     this.awaitingCommand = false; // ouviu a palavra de ativação, esperando o pedido
@@ -195,7 +195,7 @@ export class Voice {
     }
   }
 
-  setName(name) { this.wake = wakeRegex(name || "Jarvis"); }
+  setName(name) { this.wake = wakeRegex(name || "Argos"); }
 
   toggle() {
     if (!this.engine) return;
@@ -271,7 +271,7 @@ export class Voice {
     }
     const m = text.match(this.wake);
     if (!m) return;
-    // o pedido pode vir antes ou depois do nome: "Jarvis, abre o Spotify" / "abre o Spotify, Jarvis"
+    // o pedido pode vir antes ou depois do nome: "Argos, abre o Spotify" / "abre o Spotify, Argos"
     const rest = strip(text);
     if (rest.replace(/[^\p{L}\p{N}]/gu, "").length > 2) this.h.onFinal(rest);
     else { this.h.onWake(); this.expectReply(); }

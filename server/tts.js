@@ -1,4 +1,4 @@
-// Voz do Jarvis: Piper, um sintetizador neural que roda 100% no computador (grátis e offline).
+// Voz do Argos: Piper, um sintetizador neural que roda 100% no computador (grátis e offline).
 // Na primeira vez baixa o motor (~25 MB) e a voz escolhida (~60 MB) para a pasta de dados.
 // Voz própria: coloque o seu modelo Piper (arquivo.onnx + arquivo.onnx.json) na pasta "voices".
 import fs from "node:fs";
@@ -111,7 +111,7 @@ export async function synth(text, lang = "pt") {
   const { voice } = getConfig();
   let id = lang === "en" && hasVoice(voice.en) ? voice.en : voice.pt;
   if (!fs.existsSync(engineBin()) || !hasVoice(id)) throw new Error("voz ainda não instalada");
-  const out = path.join(os.tmpdir(), `jarvis-tts-${process.pid}-${++counter}.wav`);
+  const out = path.join(os.tmpdir(), `argos-tts-${process.pid}-${++counter}.wav`);
   const speed = Math.max(0.6, Math.min(1.6, Number(voice.speed) || 1));
   try {
     await new Promise((resolve, reject) => {

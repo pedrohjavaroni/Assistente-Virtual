@@ -3,8 +3,8 @@
 import { mountOrb } from "./orb.js";
 
 const $ = (id) => document.getElementById(id);
-const desk = window.jarvisDesktop;
-const bus = "BroadcastChannel" in window ? new BroadcastChannel("jarvis") : null;
+const desk = window.argosDesktop;
+const bus = "BroadcastChannel" in window ? new BroadcastChannel("argos") : null;
 const orb = mountOrb($("orb"));
 const toApp = (msg) => bus?.postMessage(msg);
 

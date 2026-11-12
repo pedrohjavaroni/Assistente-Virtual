@@ -1,4 +1,4 @@
-// Prompt do sistema do Jarvis. Ele é montado uma vez por conversa e não muda no meio dela
+// Prompt do sistema do Argos. Ele é montado uma vez por conversa e não muda no meio dela
 // (data/hora e tarefas, que mudam a cada pedido, vão junto com a mensagem do usuário).
 import { getConfig, getMemory, allowedDirs } from "./config.js";
 
@@ -22,7 +22,7 @@ export function buildSystemPrompt({ local, calendar, instagram }) {
   const cfg = getConfig();
   const memory = getMemory();
   const lines = [
-    `Google Agenda: ${calendar?.connected ? "conectada; use as ferramentas calendar_* para compromissos com dia e hora" : "não conectada (o usuário conecta em Configurações, na janela do Jarvis)"}.`,
+    `Google Agenda: ${calendar?.connected ? "conectada; use as ferramentas calendar_* para compromissos com dia e hora" : "não conectada (o usuário conecta em Configurações, na janela do Argos)"}.`,
     `Instagram: ${instagram ? "conta conectada; use as ferramentas instagram_*" : "conta não conectada: métricas e publicação ficam indisponíveis até o usuário colar o token em Configurações (passo a passo em docs/instagram.md). Criar conteúdo funciona normalmente"}.`,
     local
       ? `Computador: ${{ win32: "Windows", darwin: "macOS" }[process.platform] || "Linux"}. Pastas liberadas para arquivos: ${allowedDirs().join("; ") || "(nenhuma)"}.`

@@ -1,5 +1,5 @@
 // Integração com o Google Agenda (OAuth 2.0 + Calendar API v3), sem bibliotecas extras.
-// O token fica salvo só no seu computador (pasta de dados do Jarvis).
+// O token fica salvo só no seu computador (pasta de dados do Argos).
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -11,7 +11,7 @@ const SCOPES = [
 ];
 const API = "https://www.googleapis.com/calendar/v3";
 
-const dataDir = () => process.env.JARVIS_DATA_DIR || path.join(process.cwd(), "data");
+const dataDir = () => process.env.ARGOS_DATA_DIR || path.join(process.cwd(), "data");
 const file = (name) => path.join(dataDir(), name);
 
 function readJson(name, fallback) {

@@ -1,22 +1,22 @@
-// Jarvis — janela principal: conversa, voz, tarefas, agenda e configurações.
+// Argos — janela principal: conversa, voz, tarefas, agenda e configurações.
 import { Voice, detectLang } from "./voice.js";
 import { mountOrb } from "./orb.js";
 
 const $ = (id) => document.getElementById(id);
 const store = {
-  get(key, fallback) { try { const v = localStorage.getItem("jarvis:" + key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
-  set(key, value) { try { localStorage.setItem("jarvis:" + key, JSON.stringify(value)); } catch {} },
+  get(key, fallback) { try { const v = localStorage.getItem("argos:" + key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
+  set(key, value) { try { localStorage.setItem("argos:" + key, JSON.stringify(value)); } catch {} },
 };
 const uid = () => Math.random().toString(36).slice(2, 9);
 const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Sao_Paulo";
 const TRASH = '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
 
-const desktop = window.jarvisDesktop;                       // ponte do app desktop (Electron)
-const bus = "BroadcastChannel" in window ? new BroadcastChannel("jarvis") : null; // conversa com o orbe flutuante
+const desktop = window.argosDesktop;                       // ponte do app desktop (Electron)
+const bus = "BroadcastChannel" in window ? new BroadcastChannel("argos") : null; // conversa com o orbe flutuante
 const orb = mountOrb($("orb"));
 const sessionId = uid() + uid();
 
-let cfg = { name: "Jarvis", title: "senhor", voice: { effect: true } };
+let cfg = { name: "Argos", title: "senhor", voice: { effect: true } };
 let tasks = store.get("tasks", []);
 let reminders = store.get("reminders", []);
 let busy = false, listening = false, talking = false;
@@ -174,7 +174,7 @@ async function ask(text) {
     }
   } catch (err) {
     console.error(err);
-    reply = "Não consegui falar com o servidor do Jarvis.";
+    reply = "Não consegui falar com o servidor do Argos.";
     (msgEl ??= addMsg("ai", "")).textContent = reply;
   } finally {
     busy = false; hint(""); refreshOrb();
@@ -348,7 +348,7 @@ function renderSettings(s) {
   $("igDisconnect").hidden = !ig.connected;
 
   $("keySection").hidden = !desktop;
-  $("keyMsg").textContent = s.hasKey ? "Chave salva neste computador. Para trocar, cole a nova." : "É o que liga o Jarvis à IA. Crie em console.anthropic.com; ela fica salva só neste computador.";
+  $("keyMsg").textContent = s.hasKey ? "Chave salva neste computador. Para trocar, cole a nova." : "É o que liga o Argos à IA. Crie em console.anthropic.com; ela fica salva só neste computador.";
 }
 
 async function loadSettings() {
@@ -447,7 +447,7 @@ async function refreshCalendar() {
   $("gcalDisconnect").hidden = !(gcal.local && gcal.connected);
   const msg = gcal.connected ? `Conectada (${gcal.email || "Google"}).`
     : gcal.configured ? "Chave salva. Falta conectar com a sua conta Google."
-    : "Para o Jarvis ver e marcar compromissos, crie uma chave grátis no Google (passo a passo em docs/google-agenda.md).";
+    : "Para o Argos ver e marcar compromissos, crie uma chave grátis no Google (passo a passo em docs/google-agenda.md).";
   $("gcalCfgMsg").textContent = msg;
   $("gcalMsg").textContent = gcal.connected ? "Próximas 24 horas:" : "Não conectada. Conecte em Configurações.";
   await loadEvents();
@@ -523,7 +523,7 @@ async function start() {
   try {
     const res = await fetch("api/settings");
     if (res.ok) applyConfig(await res.json());
-    else { const h = await (await fetch("api/health")).json(); applyConfig({ ...cfg, name: h.name || "Jarvis" }); }
+    else { const h = await (await fetch("api/health")).json(); applyConfig({ ...cfg, name: h.name || "Argos" }); }
   } catch {}
   renderLists();
   refreshCalendar();
