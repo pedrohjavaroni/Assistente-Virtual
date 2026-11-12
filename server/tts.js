@@ -22,9 +22,7 @@ const VOICES_URL = "https://huggingface.co/rhasspy/piper-voices/resolve/main/";
 
 export const CATALOG = [
   { id: "pt_BR-faber-medium", lang: "pt", label: "Faber (português, grave)" },
-  { id: "pt_BR-cadu-medium", lang: "pt", label: "Cadu (português)" },
-  { id: "pt_BR-jeff-medium", lang: "pt", label: "Jeff (português)" },
-  { id: "pt_BR-edresson-low", lang: "pt", label: "Edresson (português, leve)" },
+  { id: "pt_BR-edresson-low", lang: "pt", label: "Edresson (português)" },
   { id: "en_GB-alan-medium", lang: "en", label: "Alan (inglês britânico)" },
   { id: "en_US-ryan-high", lang: "en", label: "Ryan (inglês americano)" },
 ];
